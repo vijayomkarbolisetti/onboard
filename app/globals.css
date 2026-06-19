@@ -142,8 +142,14 @@ html.light ::selection {
   }
 
   html:not(.light) .glass-card {
-    background-color: color-mix(in srgb, var(--theme-surface) 92%, transparent);
-    backdrop-filter: blur(20px);
+    background-color: color-mix(in srgb, var(--theme-surface) 96%, transparent);
+  }
+
+  .content-shell {
+    border-radius: 1rem;
+    border: 1px solid var(--theme-border);
+    background-color: var(--theme-surface);
+    box-shadow: var(--theme-card-shadow);
   }
 
   .glass-panel {

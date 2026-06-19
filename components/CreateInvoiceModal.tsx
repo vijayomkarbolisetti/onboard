@@ -3,6 +3,7 @@
 import { Plus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import type { CreateInvoiceInput, Onboarding } from '@/types'
+import { formatDate } from '@/utils/format'
 
 interface CreateInvoiceModalProps {
   open: boolean
@@ -34,12 +35,17 @@ export function CreateInvoiceModal({
 
   if (!open) return null
 
+  const onboardingLabel = (item: Onboarding) =>
+    item.organization?.trim() || `Campaign - ${formatDate(item.campaignLaunchDate)}`
+
   const handleOnboardingChange = (onboardingId: string) => {
     const onboarding = onboardings.find((item) => item.id === onboardingId)
     setForm({
       ...form,
       onboardingId,
-      organization: onboarding?.organization ?? '',
+      organization: onboarding
+        ? onboarding.organization?.trim() || onboardingLabel(onboarding)
+        : '',
     })
   }
 
@@ -122,7 +128,7 @@ export function CreateInvoiceModal({
               <option value="">Select organization</option>
               {onboardings.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.organization}
+                  {onboardingLabel(item)}
                 </option>
               ))}
             </select>

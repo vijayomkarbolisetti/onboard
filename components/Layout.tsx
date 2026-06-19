@@ -63,7 +63,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
         </nav>
       </aside>
 
-      <div className="lg:pl-[280px]">
+      <div className="lg:pl-[280px] min-w-0">
         <header className="sticky top-0 z-20 border-b border-theme bg-theme-sidebar px-4 py-4 shadow-sm lg:hidden">
           <div className="flex items-center justify-between gap-3">
             <WyraLogo width={110} height={36} className="h-8 w-auto object-contain" />
@@ -96,7 +96,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
           <UserButton />
         </header>
 
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main className="w-full min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </main>
       </div>

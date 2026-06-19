@@ -6,9 +6,13 @@ export interface Onboarding {
   id: string
   organization: string
   onboardingDate: string
+  endDate: string
   campaignLaunchDate: string
-  remarks: string
-  status: OnboardingStatus
+  targetedLeads: number
+  interestedLeads: number
+  totalReplies: number
+  status: string
+  remark: string
   createdAt: string
 }
 
@@ -46,8 +50,13 @@ export interface Invoice {
 export interface CreateOnboardingInput {
   organization: string
   onboardingDate: string
+  endDate: string
   campaignLaunchDate: string
-  remarks: string
+  targetedLeads: number
+  interestedLeads: number
+  totalReplies: number
+  status: string
+  remark: string
 }
 
 export interface CreateOnboardingInvoiceInput {

@@ -37,7 +37,6 @@ export function useOnboardings() {
     const optimistic: Onboarding = {
       id: tempId,
       ...input,
-      status: 'pending',
       createdAt: new Date().toISOString(),
     }
 
