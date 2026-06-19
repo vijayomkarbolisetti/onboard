@@ -1,0 +1,329 @@
+'use client'
+
+import { Plus, Save, X } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import type {
+  CreateOnboardingInvoiceInput,
+  OnboardingInvoiceRecord,
+  SaasMspAgreement,
+} from '@/types'
+
+interface OnboardingInvoiceFormModalProps {
+  open: boolean
+  mode: 'create' | 'edit'
+  initial?: OnboardingInvoiceRecord | null
+  onClose: () => void
+  onSubmit: (input: CreateOnboardingInvoiceInput) => Promise<void>
+}
+
+const emptyForm = {
+  companyName: '',
+  saasMspAgreement: '' as SaasMspAgreement | '',
+  sponsor: '',
+  partnerProgram: '',
+  pointOfContact: '',
+  personEmailId: '',
+  onBoardDate: '',
+  invoiceAmount: 0,
+  firstInvoiceDate: '',
+  invoiceCycle: '',
+  invoicesGenerated: 0,
+  invoicesPaid: 0,
+  nextInvoiceStatus: '',
+}
+
+const agreementOptions: { value: SaasMspAgreement; label: string }[] = [
+  { value: 'SaaS', label: 'SaaS' },
+  { value: 'MSP', label: 'MSP' },
+]
+
+export function OnboardingInvoiceFormModal({
+  open,
+  mode,
+  initial,
+  onClose,
+  onSubmit,
+}: OnboardingInvoiceFormModalProps) {
+  const [form, setForm] = useState(emptyForm)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const isEdit = mode === 'edit'
+
+  useEffect(() => {
+    if (!open) return
+    if (isEdit && initial) {
+      setForm({
+        companyName: initial.companyName,
+        saasMspAgreement: initial.saasMspAgreement,
+        sponsor: initial.sponsor,
+        partnerProgram: initial.partnerProgram,
+        pointOfContact: initial.pointOfContact,
+        personEmailId: initial.personEmailId,
+        onBoardDate: initial.onBoardDate,
+        invoiceAmount: initial.invoiceAmount,
+        firstInvoiceDate: initial.firstInvoiceDate,
+        invoiceCycle: initial.invoiceCycle,
+        invoicesGenerated: initial.invoicesGenerated,
+        invoicesPaid: initial.invoicesPaid,
+        nextInvoiceStatus: initial.nextInvoiceStatus,
+      })
+    } else {
+      setForm(emptyForm)
+    }
+    setError(null)
+  }, [open, isEdit, initial])
+
+  if (!open) return null
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+    setError(null)
+
+    if (!form.companyName.trim()) {
+      setError('Company name is required')
+      return
+    }
+    if (!form.saasMspAgreement) {
+      setError('Please select SaaS or MSP')
+      return
+    }
+    if (!form.onBoardDate) {
+      setError('On board date is required')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      await onSubmit({
+        ...form,
+        companyName: form.companyName.trim(),
+        saasMspAgreement: form.saasMspAgreement as SaasMspAgreement,
+        sponsor: form.sponsor.trim(),
+        partnerProgram: form.partnerProgram.trim(),
+        pointOfContact: form.pointOfContact.trim(),
+        personEmailId: form.personEmailId.trim(),
+        invoiceCycle: form.invoiceCycle.trim(),
+        nextInvoiceStatus: form.nextInvoiceStatus.trim(),
+      })
+      setForm(emptyForm)
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save record')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleClose = () => {
+    if (submitting) return
+    setForm(emptyForm)
+    setError(null)
+    onClose()
+  }
+
+  const set = (key: keyof CreateOnboardingInvoiceInput, value: string | number) => {
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        type="button"
+        className="absolute inset-0 theme-overlay backdrop-blur-sm"
+        onClick={handleClose}
+        aria-label="Close modal"
+      />
+      <div className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden theme-modal">
+        <div className="h-1 shrink-0 bg-wyra-gradient" />
+        <div className="flex shrink-0 items-center justify-between border-b border-theme px-6 py-5">
+          <div>
+            <h2 className="text-lg font-bold text-theme-fg">
+              {isEdit ? 'Edit Record' : 'Add Onboarding & Invoice'}
+            </h2>
+            <p className="text-sm text-theme-muted">Company and billing details</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="rounded-lg p-2 text-theme-muted hover:bg-theme-hover hover:text-theme-fg"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="overflow-y-auto p-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Company Name" className="sm:col-span-2">
+              <input
+                className="wyra-input"
+                value={form.companyName}
+                onChange={(e) => set('companyName', e.target.value)}
+                placeholder="Company name"
+              />
+            </Field>
+
+            <Field label="Saas / MSP Agreement">
+              <select
+                className="wyra-input"
+                value={form.saasMspAgreement}
+                onChange={(e) =>
+                  set('saasMspAgreement', e.target.value as SaasMspAgreement | '')
+                }
+              >
+                <option value="">Select SaaS or MSP</option>
+                {agreementOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Sponsor">
+              <input
+                className="wyra-input"
+                value={form.sponsor}
+                onChange={(e) => set('sponsor', e.target.value)}
+                placeholder="Sponsor name"
+              />
+            </Field>
+
+            <Field label="Partner Program">
+              <input
+                className="wyra-input"
+                value={form.partnerProgram}
+                onChange={(e) => set('partnerProgram', e.target.value)}
+                placeholder="Partner program"
+              />
+            </Field>
+
+            <Field label="Point Of Contact">
+              <input
+                className="wyra-input"
+                value={form.pointOfContact}
+                onChange={(e) => set('pointOfContact', e.target.value)}
+                placeholder="Contact name"
+              />
+            </Field>
+
+            <Field label="Person Email Id">
+              <input
+                type="email"
+                className="wyra-input"
+                value={form.personEmailId}
+                onChange={(e) => set('personEmailId', e.target.value)}
+                placeholder="email@company.com"
+              />
+            </Field>
+
+            <Field label="On Board Date">
+              <input
+                type="date"
+                className="wyra-input"
+                value={form.onBoardDate}
+                onChange={(e) => set('onBoardDate', e.target.value)}
+              />
+            </Field>
+
+            <Field label="Invoice Amount (USD)">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="wyra-input"
+                value={form.invoiceAmount || ''}
+                onChange={(e) => set('invoiceAmount', Number(e.target.value))}
+                placeholder="0.00"
+              />
+            </Field>
+
+            <Field label="1st Invoice Date">
+              <input
+                type="date"
+                className="wyra-input"
+                value={form.firstInvoiceDate}
+                onChange={(e) => set('firstInvoiceDate', e.target.value)}
+              />
+            </Field>
+
+            <Field label="Invoice Cycle">
+              <input
+                className="wyra-input"
+                value={form.invoiceCycle}
+                onChange={(e) => set('invoiceCycle', e.target.value)}
+                placeholder="Monthly, Quarterly..."
+              />
+            </Field>
+
+            <Field label="No. of Invoices Generated">
+              <input
+                type="number"
+                min="0"
+                className="wyra-input"
+                value={form.invoicesGenerated || ''}
+                onChange={(e) => set('invoicesGenerated', Number(e.target.value))}
+              />
+            </Field>
+
+            <Field label="No. of Invoices Paid">
+              <input
+                type="number"
+                min="0"
+                className="wyra-input"
+                value={form.invoicesPaid || ''}
+                onChange={(e) => set('invoicesPaid', Number(e.target.value))}
+              />
+            </Field>
+
+            <Field label="Next Invoice Status">
+              <input
+                type="text"
+                className="wyra-input"
+                value={form.nextInvoiceStatus}
+                onChange={(e) => set('nextInvoiceStatus', e.target.value)}
+                placeholder="e.g. Pending, Paid, Scheduled..."
+              />
+            </Field>
+          </div>
+
+          {error && (
+            <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+              {error}
+            </p>
+          )}
+
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="rounded-xl border border-theme px-5 py-2.5 text-sm font-medium text-theme-muted hover:bg-theme-hover"
+            >
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting} className="btn-wyra disabled:opacity-60">
+              {isEdit ? <Save size={16} /> : <Plus size={16} />}
+              {submitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Record'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function Field({
+  label,
+  children,
+  className = '',
+}: {
+  label: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <label className={`block space-y-2 ${className}`}>
+      <span className="wyra-label">{label}</span>
+      {children}
+    </label>
+  )
+}

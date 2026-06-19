@@ -1,0 +1,228 @@
+@import "tailwindcss";
+@import url('https://fonts.cdnfonts.com/css/satoshi');
+
+@theme {
+  --color-aqua: #1fcc9a;
+  --color-aqua-dark: #17a87f;
+  --color-lime: #a5c626;
+  --color-wyra-blue: #00a0f0;
+  --color-wyra-navy: #241f5b;
+  --color-wyra-lilac: #7c73b5;
+  --font-sans: "Satoshi", system-ui, sans-serif;
+}
+
+/* ── Dark theme (default) ── */
+:root {
+  --theme-bg: #0a0e1a;
+  --theme-surface: #0f1420;
+  --theme-elevated: #141b2d;
+  --theme-sidebar: #080c14;
+  --theme-fg: #f1f5f9;
+  --theme-muted: #94a3b8;
+  --theme-body: #cbd5e1;
+  --theme-label: #cbd5e1;
+  --theme-border: rgba(255, 255, 255, 0.08);
+  --theme-border-strong: rgba(255, 255, 255, 0.14);
+  --theme-input-bg: #0a0e1a;
+  --theme-hover: rgba(255, 255, 255, 0.06);
+  --theme-modal: #0f1420;
+  --theme-shadow: rgba(0, 0, 0, 0.45);
+  --theme-card-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+  --theme-modal-shadow: 0 32px 64px rgba(0, 0, 0, 0.5);
+  --theme-glow-a: rgba(31, 204, 154, 0.12);
+  --theme-glow-b: rgba(165, 198, 38, 0.08);
+  --theme-gradient: linear-gradient(to right, #a5c626, #17a87f);
+  --theme-btn-text: #000000;
+  --theme-overlay: rgba(0, 0, 0, 0.65);
+  --theme-date-filter: invert(0.7);
+}
+
+/* ── Light theme ── */
+html.light {
+  --theme-bg: #f4f3fa;
+  --theme-surface: #ffffff;
+  --theme-elevated: #faf9ff;
+  --theme-sidebar: #ffffff;
+  --theme-fg: #241f5b;
+  --theme-muted: #5c5a78;
+  --theme-body: #3d3a55;
+  --theme-label: #241f5b;
+  --theme-border: #e8e6f0;
+  --theme-border-strong: #d4d1e3;
+  --theme-input-bg: #ffffff;
+  --theme-hover: #f0eef8;
+  --theme-modal: #ffffff;
+  --theme-shadow: rgba(36, 31, 91, 0.1);
+  --theme-card-shadow: 0 4px 24px rgba(36, 31, 91, 0.08), 0 1px 3px rgba(36, 31, 91, 0.06);
+  --theme-modal-shadow: 0 24px 48px rgba(36, 31, 91, 0.18), 0 8px 16px rgba(36, 31, 91, 0.08);
+  --theme-glow-a: rgba(31, 204, 154, 0.06);
+  --theme-glow-b: rgba(124, 115, 181, 0.05);
+  --theme-gradient: linear-gradient(135deg, #1fcc9a 0%, #17a87f 50%, #04569a 100%);
+  --theme-btn-text: #ffffff;
+  --theme-overlay: rgba(36, 31, 91, 0.35);
+  --theme-date-filter: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--theme-bg);
+  color: var(--theme-body);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+::selection {
+  background: rgba(31, 204, 154, 0.35);
+  color: #fff;
+}
+
+html.light ::selection {
+  background: rgba(31, 204, 154, 0.25);
+  color: #241f5b;
+}
+
+@layer utilities {
+  .bg-theme-bg { background-color: var(--theme-bg); }
+  .bg-theme-surface { background-color: var(--theme-surface); }
+  .bg-theme-elevated { background-color: var(--theme-elevated); }
+  .bg-theme-sidebar { background-color: var(--theme-sidebar); }
+  .bg-theme-modal { background-color: var(--theme-modal); }
+  .bg-theme-hover { background-color: var(--theme-hover); }
+  .text-theme-fg { color: var(--theme-fg); }
+  .text-theme-muted { color: var(--theme-muted); }
+  .text-theme-body { color: var(--theme-body); }
+  .border-theme { border-color: var(--theme-border); }
+  .border-theme-strong { border-color: var(--theme-border-strong); }
+
+  .bg-wyra-gradient {
+    background-image: var(--theme-gradient);
+  }
+
+  .btn-wyra {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.75rem;
+    background-image: var(--theme-gradient);
+    padding: 0.625rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--theme-btn-text);
+    box-shadow: 0 4px 14px rgba(31, 204, 154, 0.25);
+    transition: filter 0.2s, transform 0.15s;
+    cursor: pointer;
+  }
+
+  .btn-wyra:hover {
+    filter: brightness(1.08);
+  }
+
+  .btn-wyra:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-wyra-nav {
+    background-image: var(--theme-gradient);
+    color: var(--theme-btn-text);
+    box-shadow: 0 4px 12px rgba(31, 204, 154, 0.2);
+  }
+
+  .glass-card {
+    border-radius: 1rem;
+    border: 1px solid var(--theme-border);
+    background-color: var(--theme-surface);
+    box-shadow: var(--theme-card-shadow);
+  }
+
+  html:not(.light) .glass-card {
+    background-color: color-mix(in srgb, var(--theme-surface) 92%, transparent);
+    backdrop-filter: blur(20px);
+  }
+
+  .glass-panel {
+    border-radius: 0.75rem;
+    border: 1px solid var(--theme-border);
+    background-color: var(--theme-elevated);
+  }
+
+  html:not(.light) .glass-panel {
+    background-color: color-mix(in srgb, var(--theme-elevated) 88%, transparent);
+    backdrop-filter: blur(12px);
+  }
+
+  .wyra-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid var(--theme-border-strong);
+    background-color: var(--theme-input-bg);
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: var(--theme-fg);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .wyra-input::placeholder {
+    color: var(--theme-muted);
+    opacity: 0.7;
+  }
+
+  .wyra-input:focus {
+    border-color: #1fcc9a;
+    box-shadow: 0 0 0 3px rgba(31, 204, 154, 0.2);
+  }
+
+  .wyra-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--theme-label);
+  }
+
+  .ambient-glow {
+    background:
+      radial-gradient(ellipse 80% 50% at 20% -10%, var(--theme-glow-a), transparent),
+      radial-gradient(ellipse 60% 40% at 90% 10%, var(--theme-glow-b), transparent),
+      var(--theme-bg);
+    transition: background 0.3s ease;
+  }
+
+  .theme-overlay {
+    background-color: var(--theme-overlay);
+  }
+
+  .theme-modal {
+    border-radius: 1rem;
+    border: 1px solid var(--theme-border);
+    background-color: var(--theme-modal);
+    box-shadow: var(--theme-modal-shadow);
+  }
+}
+
+input[type='date']::-webkit-calendar-picker-indicator {
+  filter: var(--theme-date-filter);
+  cursor: pointer;
+}
+
+select.wyra-input option {
+  background: var(--theme-modal);
+  color: var(--theme-fg);
+}
+
+button:not(:disabled),
+select:not(:disabled),
+label[for],
+.theme-overlay {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
