@@ -1,9 +1,20 @@
 import * as XLSX from 'xlsx'
+import {
+  cellDisplayValue,
+  hasRowData,
+  isExcelFile,
+  normalizeHeader,
+  parseExcelDate,
+  parseInteger,
+  parseNumber,
+} from '@/lib/excelUtils'
 import type {
   CreateOnboardingInvoiceInput,
   OnboardingInvoiceRecord,
   SaasMspAgreement,
 } from '@/types'
+
+export { isExcelFile } from '@/lib/excelUtils'
 
 export const ONBOARDING_INVOICE_HEADERS = [
   'Company Name',
@@ -16,44 +27,61 @@ export const ONBOARDING_INVOICE_HEADERS = [
   'Invoice Amount',
   '1st Invoice Date',
   'Invoice Cycle',
-  'No. Invoices Generated',
-  'No. Invoices Paid',
+  'No. of Invoices Generated',
+  'No. of Invoices Paid',
   'Next Invoice Status',
 ] as const
 
 const HEADER_TO_FIELD: Record<string, keyof CreateOnboardingInvoiceInput> = {
   'company name': 'companyName',
+  'saas msp agreement': 'saasMspAgreement',
   'saas / msp agreement': 'saasMspAgreement',
-  'saas/msp agreement': 'saasMspAgreement',
   sponsor: 'sponsor',
   'partner program': 'partnerProgram',
   'point of contact': 'pointOfContact',
   'person email id': 'personEmailId',
   'person email': 'personEmailId',
   'on board date': 'onBoardDate',
+  'onboard date': 'onBoardDate',
   'invoice amount': 'invoiceAmount',
   '1st invoice date': 'firstInvoiceDate',
   'first invoice date': 'firstInvoiceDate',
   'invoice cycle': 'invoiceCycle',
-  'no. invoices generated': 'invoicesGenerated',
+  'no invoices generated': 'invoicesGenerated',
   'no of invoices generated': 'invoicesGenerated',
-  'no. invoices paid': 'invoicesPaid',
+  'noof invoices generated': 'invoicesGenerated',
+  'no invoices paid': 'invoicesPaid',
   'no of invoices paid': 'invoicesPaid',
+  'noof invoices paid': 'invoicesPaid',
   'next invoice status': 'nextInvoiceStatus',
 }
 
-const EXCEL_EXTENSIONS = ['.xlsx', '.xls']
+function resolveField(header: string): keyof CreateOnboardingInvoiceInput | null {
+  const normalized = normalizeHeader(header)
+  if (!normalized) return null
+  if (HEADER_TO_FIELD[normalized]) return HEADER_TO_FIELD[normalized]
 
-export function isExcelFile(file: File) {
-  const name = file.name.toLowerCase()
-  return EXCEL_EXTENSIONS.some((ext) => name.endsWith(ext))
-}
+  if (normalized.includes('company') && normalized.includes('name')) return 'companyName'
+  if (normalized.includes('saas') || normalized.includes('msp')) return 'saasMspAgreement'
+  if (normalized.includes('partner') && normalized.includes('program')) return 'partnerProgram'
+  if (normalized.includes('point') && normalized.includes('contact')) return 'pointOfContact'
+  if (normalized.includes('person') && normalized.includes('email')) return 'personEmailId'
+  if (normalized.includes('on') && normalized.includes('board')) return 'onBoardDate'
+  if (normalized.includes('invoice') && normalized.includes('amount')) return 'invoiceAmount'
+  if (
+    (normalized.includes('1st') || normalized.includes('first')) &&
+    normalized.includes('invoice') &&
+    normalized.includes('date')
+  ) {
+    return 'firstInvoiceDate'
+  }
+  if (normalized.includes('invoice') && normalized.includes('cycle')) return 'invoiceCycle'
+  if (normalized.includes('generated')) return 'invoicesGenerated'
+  if (normalized.includes('paid') && normalized.includes('invoice')) return 'invoicesPaid'
+  if (normalized.includes('next') && normalized.includes('status')) return 'nextInvoiceStatus'
+  if (normalized === 'sponsor') return 'sponsor'
 
-function normalizeHeader(value: unknown) {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
+  return null
 }
 
 function parseAgreement(value: unknown): SaasMspAgreement | null {
@@ -63,31 +91,6 @@ function parseAgreement(value: unknown): SaasMspAgreement | null {
   if (normalized === 'SAAS' || normalized === 'S') return 'SaaS'
   if (normalized === 'MSP' || normalized === 'M') return 'MSP'
   return null
-}
-
-function parseNumber(value: unknown) {
-  if (typeof value === 'number' && !Number.isNaN(value)) return value
-  const parsed = Number(String(value ?? '').replace(/,/g, '').trim())
-  return Number.isNaN(parsed) ? 0 : parsed
-}
-
-function parseExcelDate(value: unknown): string {
-  if (value === null || value === undefined || value === '') return ''
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10)
-    const parsed = new Date(trimmed)
-    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10)
-    return ''
-  }
-  if (typeof value === 'number') {
-    const dateParts = XLSX.SSF.parse_date_code(value)
-    if (dateParts) {
-      const date = new Date(dateParts.y, dateParts.m - 1, dateParts.d)
-      return date.toISOString().slice(0, 10)
-    }
-  }
-  return ''
 }
 
 function emptyRecord(): CreateOnboardingInvoiceInput {
@@ -108,39 +111,94 @@ function emptyRecord(): CreateOnboardingInvoiceInput {
   }
 }
 
-function rowToRecord(row: Record<string, unknown>): CreateOnboardingInvoiceInput {
-  const record = emptyRecord()
+function assignField(
+  record: CreateOnboardingInvoiceInput,
+  field: keyof CreateOnboardingInvoiceInput,
+  value: unknown,
+) {
+  if (value === null || value === undefined || value === '') return
 
-  for (const [header, value] of Object.entries(row)) {
-    const field = HEADER_TO_FIELD[normalizeHeader(header)]
-    if (!field) continue
-
-    if (field === 'saasMspAgreement') {
-      const raw = String(value ?? '').trim()
-      if (!raw) continue
-      const agreement = parseAgreement(value)
-      if (agreement) record.saasMspAgreement = agreement
-      continue
-    }
-
-    if (field === 'invoiceAmount' || field === 'invoicesGenerated' || field === 'invoicesPaid') {
-      const raw = String(value ?? '').trim()
-      if (!raw) continue
-      record[field] = parseNumber(value)
-      continue
-    }
-
-    if (field === 'onBoardDate' || field === 'firstInvoiceDate') {
-      const parsed = parseExcelDate(value)
-      if (parsed) record[field] = parsed
-      continue
-    }
-
-    const text = String(value ?? '').trim()
-    if (text) record[field] = text
+  if (field === 'saasMspAgreement') {
+    const agreement = parseAgreement(value)
+    if (agreement) record.saasMspAgreement = agreement
+    return
   }
 
-  return record
+  if (field === 'invoiceAmount') {
+    record.invoiceAmount = parseNumber(value)
+    return
+  }
+
+  if (field === 'invoicesGenerated' || field === 'invoicesPaid') {
+    record[field] = parseInteger(value)
+    return
+  }
+
+  if (field === 'onBoardDate' || field === 'firstInvoiceDate') {
+    const parsed = parseExcelDate(value)
+    if (parsed) record[field] = parsed
+    return
+  }
+
+  const text = String(value).trim()
+  if (text) record[field] = text as never
+}
+
+function findHeaderRow(matrix: unknown[][]) {
+  let headerRowIndex = 0
+  let bestScore = 0
+
+  for (let row = 0; row < Math.min(matrix.length, 8); row++) {
+    const score = matrix[row].reduce<number>((count, cell) => {
+      return resolveField(String(cell ?? '')) ? count + 1 : count
+    }, 0)
+
+    if (score > bestScore) {
+      bestScore = score
+      headerRowIndex = row
+    }
+  }
+
+  return { headerRowIndex, bestScore }
+}
+
+function rowsFromSheet(sheet: XLSX.WorkSheet): CreateOnboardingInvoiceInput[] {
+  const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+    header: 1,
+    defval: '',
+    raw: false,
+  })
+
+  if (matrix.length < 2) return []
+
+  const { headerRowIndex, bestScore } = findHeaderRow(matrix)
+  if (bestScore < 2) return []
+
+  const headerRow = matrix[headerRowIndex] ?? []
+  const fieldByColumn = headerRow.map((header) => resolveField(String(header ?? '')))
+  const records: CreateOnboardingInvoiceInput[] = []
+
+  for (let rowIndex = headerRowIndex + 1; rowIndex < matrix.length; rowIndex++) {
+    const row = matrix[rowIndex] ?? []
+    const rowObject: Record<string, unknown> = {}
+
+    row.forEach((value, columnIndex) => {
+      const field = fieldByColumn[columnIndex]
+      if (!field) return
+      const cell = sheet[XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex })]
+      rowObject[field] = cellDisplayValue(cell) || value
+    })
+
+    if (!hasRowData(rowObject)) continue
+
+    const record = emptyRecord()
+    for (const [field, value] of Object.entries(rowObject)) {
+      assignField(record, field as keyof CreateOnboardingInvoiceInput, value)
+    }
+    records.push(record)
+  }
+
+  return records
 }
 
 export async function parseOnboardingInvoicesExcel(file: File) {
@@ -149,31 +207,13 @@ export async function parseOnboardingInvoicesExcel(file: File) {
   }
 
   const buffer = await file.arrayBuffer()
-  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true })
+  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, cellNF: true })
   const sheetName = workbook.SheetNames[0]
   if (!sheetName) {
     throw new Error('The Excel file has no worksheets')
   }
 
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
-    workbook.Sheets[sheetName],
-    { defval: '' },
-  )
-
-  if (rows.length === 0) {
-    throw new Error('The Excel file has no data rows')
-  }
-
-  const records: CreateOnboardingInvoiceInput[] = []
-
-  rows.forEach((row) => {
-    const hasValues = Object.values(row).some(
-      (value) => String(value ?? '').trim() !== '',
-    )
-    if (!hasValues) return
-
-    records.push(rowToRecord(row))
-  })
+  const records = rowsFromSheet(workbook.Sheets[sheetName])
 
   if (records.length === 0) {
     throw new Error('No valid rows found in the Excel file')
@@ -199,8 +239,8 @@ export function exportOnboardingInvoicesExcel(records: OnboardingInvoiceRecord[]
     'Invoice Amount': record.invoiceAmount,
     '1st Invoice Date': formatExportDate(record.firstInvoiceDate),
     'Invoice Cycle': record.invoiceCycle,
-    'No. Invoices Generated': record.invoicesGenerated,
-    'No. Invoices Paid': record.invoicesPaid,
+    'No. of Invoices Generated': record.invoicesGenerated,
+    'No. of Invoices Paid': record.invoicesPaid,
     'Next Invoice Status': record.nextInvoiceStatus,
   }))
 
