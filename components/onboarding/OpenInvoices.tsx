@@ -4,6 +4,7 @@ import { Download, FileText, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { OpenInvoiceFormModal } from '@/components/OpenInvoiceFormModal'
 import { isExcelFile } from '@/lib/excelUtils'
+import { notify } from '@/lib/toast'
 import {
   exportOpenInvoicesExcel,
   parseOpenInvoicesExcel,
@@ -63,7 +64,6 @@ function cellValue(invoice: OpenInvoice, column: (typeof columns)[number], index
 export function OpenInvoices({
   invoices,
   loading,
-  error,
   companyNames,
   onCreate,
   onUpdate,
@@ -73,13 +73,9 @@ export function OpenInvoices({
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<OpenInvoice | null>(null)
   const [importing, setImporting] = useState(false)
-  const [importMessage, setImportMessage] = useState<string | null>(null)
-  const [importError, setImportError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleImportClick = () => {
-    setImportMessage(null)
-    setImportError(null)
     fileInputRef.current?.click()
   }
 
@@ -89,20 +85,18 @@ export function OpenInvoices({
     if (!file) return
 
     if (!isExcelFile(file)) {
-      setImportError('Only Excel files (.xlsx, .xls) are supported')
+      notify.error('Only Excel files (.xlsx, .xls) are supported')
       return
     }
 
     setImporting(true)
-    setImportMessage(null)
-    setImportError(null)
 
     try {
       const { records, importedCount } = await parseOpenInvoicesExcel(file)
       await onImport(records)
-      setImportMessage(`Imported ${importedCount} record(s) successfully.`)
+      notify.success(`Imported ${importedCount} record(s) successfully.`)
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'Failed to import Excel file')
+      notify.error(err instanceof Error ? err.message : 'Failed to import Excel file')
     } finally {
       setImporting(false)
     }
@@ -210,24 +204,6 @@ export function OpenInvoices({
         className="hidden"
         onChange={handleFileChange}
       />
-
-      {importMessage && (
-        <div className="rounded-xl border border-aqua/30 bg-aqua/10 px-4 py-3 text-sm text-aqua">
-          {importMessage}
-        </div>
-      )}
-
-      {importError && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {importError}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
-        </div>
-      )}
 
       <div className="content-shell overflow-hidden">
         <div className="h-px bg-gradient-to-r from-transparent via-aqua/50 to-transparent" />

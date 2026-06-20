@@ -5,10 +5,12 @@ import {
   CircleDollarSign,
   FileText,
   Receipt,
+  UserPlus,
   Users,
   Wallet,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { SidebarInviteSection } from '@/components/team/SidebarInviteSection'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { WyraLogo } from '@/components/WyraLogo'
 import { cn } from '@/lib/utils'
@@ -26,6 +28,7 @@ const navItems: { id: TabId; label: string; icon: typeof Users }[] = [
   { id: 'paid-invoices', label: 'Paid Invoices', icon: CircleDollarSign },
   { id: 'open-invoices', label: 'Open Invoices', icon: FileText },
   { id: 'expenses', label: 'Expenses', icon: Wallet },
+  { id: 'team', label: 'Team & Invites', icon: UserPlus },
 ]
 
 export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
@@ -61,6 +64,8 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
             )
           })}
         </nav>
+
+        <SidebarInviteSection onTabChange={onTabChange} />
       </aside>
 
       <div className="lg:pl-[280px] min-w-0">

@@ -8,6 +8,7 @@ import {
   fetchOnboardingInvoices,
   updateOnboardingInvoice,
 } from '@/lib/dataService'
+import { notify } from '@/lib/toast'
 import type { CreateOnboardingInvoiceInput, OnboardingInvoiceRecord } from '@/types'
 
 export function useOnboardingInvoices() {
@@ -22,7 +23,9 @@ export function useOnboardingInvoices() {
       const data = await fetchOnboardingInvoices()
       setRecords(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load records')
+      const message = err instanceof Error ? err.message : 'Failed to load records'
+      setError(message)
+      notify.error(message)
     } finally {
       setLoading(false)
     }

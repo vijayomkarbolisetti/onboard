@@ -23,7 +23,6 @@ interface OnboardingDetailsProps {
 export function OnboardingDetails({
   onboardings,
   loading,
-  error,
   onCreate,
   onUpdate,
   onDelete,
@@ -156,12 +155,6 @@ export function OnboardingDetails({
   return (
     <div className="space-y-4">
       {actionToolbar}
-
-      {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
-        </div>
-      )}
 
       <div className="content-shell overflow-hidden">
         <div className="h-px bg-gradient-to-r from-transparent via-aqua/50 to-transparent" />

@@ -2,6 +2,7 @@
 
 import { Plus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { notify } from '@/lib/toast'
 import type { CreateInvoiceInput, Onboarding } from '@/types'
 import { formatDate } from '@/utils/format'
 
@@ -31,7 +32,6 @@ export function CreateInvoiceModal({
 }: CreateInvoiceModalProps) {
   const [form, setForm] = useState<CreateInvoiceInput>(emptyForm)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   if (!open) return null
 
@@ -51,22 +51,21 @@ export function CreateInvoiceModal({
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    setError(null)
 
     if (!form.onboardingId) {
-      setError('Please select an onboarding')
+      notify.error('Please select an onboarding')
       return
     }
     if (!form.invoiceNumber.trim()) {
-      setError('Invoice number is required')
+      notify.error('Invoice number is required')
       return
     }
     if (!form.amount || form.amount <= 0) {
-      setError('Amount must be greater than zero')
+      notify.error('Amount must be greater than zero')
       return
     }
     if (!form.issuedDate || !form.dueDate) {
-      setError('Issued and due dates are required')
+      notify.error('Issued and due dates are required')
       return
     }
 
@@ -77,10 +76,11 @@ export function CreateInvoiceModal({
         invoiceNumber: form.invoiceNumber.trim(),
         description: form.description.trim(),
       })
+      notify.success('Invoice created')
       setForm(emptyForm)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create invoice')
+      notify.error(err instanceof Error ? err.message : 'Failed to create invoice')
     } finally {
       setSubmitting(false)
     }
@@ -89,7 +89,6 @@ export function CreateInvoiceModal({
   const handleClose = () => {
     if (submitting) return
     setForm(emptyForm)
-    setError(null)
     onClose()
   }
 
@@ -194,12 +193,6 @@ export function CreateInvoiceModal({
               className="wyra-input resize-none"
             />
           </label>
-
-          {error && (
-            <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
-              {error}
-            </p>
-          )}
 
           <div className="flex justify-end gap-3 pt-2">
             <button

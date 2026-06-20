@@ -158,3 +158,4 @@ export type TabId =
   | 'paid-invoices'
   | 'open-invoices'
   | 'expenses'
+  | 'team'

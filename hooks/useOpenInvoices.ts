@@ -8,6 +8,7 @@ import {
   fetchOpenInvoices,
   updateOpenInvoice,
 } from '@/lib/dataService'
+import { notify } from '@/lib/toast'
 import type { CreateOpenInvoiceInput, OpenInvoice } from '@/types'
 
 export function useOpenInvoices() {
@@ -21,7 +22,9 @@ export function useOpenInvoices() {
     try {
       setInvoices(await fetchOpenInvoices())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load open invoices')
+      const message = err instanceof Error ? err.message : 'Failed to load open invoices'
+      setError(message)
+      notify.error(message)
     } finally {
       setLoading(false)
     }

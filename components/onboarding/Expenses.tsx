@@ -5,6 +5,7 @@ import { useRef, useState } from 'react'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { exportExpensesExcel, parseExpensesExcel } from '@/lib/expenseExcel'
 import { isExcelFile } from '@/lib/excelUtils'
+import { notify } from '@/lib/toast'
 import type { CreateExpenseInput, Expense } from '@/types'
 import { formatDate } from '@/utils/format'
 
@@ -55,7 +56,6 @@ function cellValue(expense: Expense, column: (typeof columns)[number], index: nu
 export function Expenses({
   expenses,
   loading,
-  error,
   onCreate,
   onUpdate,
   onDelete,
@@ -64,13 +64,9 @@ export function Expenses({
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [importing, setImporting] = useState(false)
-  const [importMessage, setImportMessage] = useState<string | null>(null)
-  const [importError, setImportError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleImportClick = () => {
-    setImportMessage(null)
-    setImportError(null)
     fileInputRef.current?.click()
   }
 
@@ -80,20 +76,18 @@ export function Expenses({
     if (!file) return
 
     if (!isExcelFile(file)) {
-      setImportError('Only Excel files (.xlsx, .xls) are supported')
+      notify.error('Only Excel files (.xlsx, .xls) are supported')
       return
     }
 
     setImporting(true)
-    setImportMessage(null)
-    setImportError(null)
 
     try {
       const { records, importedCount } = await parseExpensesExcel(file)
       await onImport(records)
-      setImportMessage(`Imported ${importedCount} record(s) successfully.`)
+      notify.success(`Imported ${importedCount} record(s) successfully.`)
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'Failed to import Excel file')
+      notify.error(err instanceof Error ? err.message : 'Failed to import Excel file')
     } finally {
       setImporting(false)
     }
@@ -201,24 +195,6 @@ export function Expenses({
         className="hidden"
         onChange={handleFileChange}
       />
-
-      {importMessage && (
-        <div className="rounded-xl border border-aqua/30 bg-aqua/10 px-4 py-3 text-sm text-aqua">
-          {importMessage}
-        </div>
-      )}
-
-      {importError && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {importError}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
-        </div>
-      )}
 
       <div className="content-shell overflow-hidden">
         <div className="h-px bg-gradient-to-r from-transparent via-aqua/50 to-transparent" />

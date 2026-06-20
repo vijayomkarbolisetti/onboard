@@ -8,6 +8,7 @@ import {
   parseOnboardingInvoicesExcel,
 } from '@/lib/onboardingInvoiceExcel'
 import { isExcelFile } from '@/lib/excelUtils'
+import { notify } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import type { CreateOnboardingInvoiceInput, OnboardingInvoiceRecord } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/format'
@@ -53,7 +54,6 @@ function cellValue(record: OnboardingInvoiceRecord, key: keyof OnboardingInvoice
 export function OnboardingInvoices({
   records,
   loading,
-  error,
   onCreate,
   onUpdate,
   onDelete,
@@ -62,8 +62,6 @@ export function OnboardingInvoices({
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<OnboardingInvoiceRecord | null>(null)
   const [importing, setImporting] = useState(false)
-  const [importMessage, setImportMessage] = useState<string | null>(null)
-  const [importError, setImportError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleExport = () => {
@@ -71,8 +69,6 @@ export function OnboardingInvoices({
   }
 
   const handleImportClick = () => {
-    setImportMessage(null)
-    setImportError(null)
     fileInputRef.current?.click()
   }
 
@@ -82,21 +78,19 @@ export function OnboardingInvoices({
     if (!file) return
 
     if (!isExcelFile(file)) {
-      setImportError('Only Excel files (.xlsx, .xls) are supported')
+      notify.error('Only Excel files (.xlsx, .xls) are supported')
       return
     }
 
     setImporting(true)
-    setImportMessage(null)
-    setImportError(null)
 
     try {
       const { records: importedRecords, importedCount } =
         await parseOnboardingInvoicesExcel(file)
       await onImport(importedRecords)
-      setImportMessage(`Imported ${importedCount} record(s) successfully.`)
+      notify.success(`Imported ${importedCount} record(s) successfully.`)
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'Failed to import Excel file')
+      notify.error(err instanceof Error ? err.message : 'Failed to import Excel file')
     } finally {
       setImporting(false)
     }
@@ -217,24 +211,6 @@ export function OnboardingInvoices({
         className="hidden"
         onChange={handleFileChange}
       />
-
-      {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
-        </div>
-      )}
-
-      {importMessage && (
-        <div className="rounded-xl border border-aqua/30 bg-aqua/10 px-4 py-3 text-sm text-aqua">
-          {importMessage}
-        </div>
-      )}
-
-      {importError && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {importError}
-        </div>
-      )}
 
       <div className="content-shell overflow-hidden">
         <div className="h-px bg-gradient-to-r from-transparent via-aqua/50 to-transparent" />

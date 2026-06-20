@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import { Layout } from '@/components/Layout'
+import { SingleOrgActivator } from '@/components/team/SingleOrgActivator'
+import { InviteTicketRedirect } from '@/components/team/InviteTicketRedirect'
+import { TeamInvitePanel } from '@/components/team/TeamInvitePanel'
 import { Expenses } from '@/components/onboarding/Expenses'
 import { OnboardingDetails } from '@/components/onboarding/OnboardingDetails'
 import { OnboardingInvoices } from '@/components/onboarding/OnboardingInvoices'
@@ -35,6 +38,10 @@ const tabMeta: Record<TabId, { title: string; subtitle: string }> = {
   expenses: {
     title: 'Expenses',
     subtitle: 'Tool subscriptions and card-based expenses',
+  },
+  team: {
+    title: 'Team & Invites',
+    subtitle: 'Invite teammates to your Wyra organization',
   },
 }
 
@@ -136,17 +143,23 @@ export default function TrackerPage() {
           }}
         />
       )}
+
+      {activeTab === 'team' && <TeamInvitePanel />}
     </>
   )
 
   return (
-    <Layout activeTab={activeTab} onTabChange={setActiveTab}>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-theme-fg">{meta.title}</h1>
-        <p className="mt-2 text-theme-muted">{meta.subtitle}</p>
-      </div>
+    <InviteTicketRedirect>
+      <SingleOrgActivator>
+        <Layout activeTab={activeTab} onTabChange={setActiveTab}>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight text-theme-fg">{meta.title}</h1>
+          <p className="mt-2 text-theme-muted">{meta.subtitle}</p>
+        </div>
 
-      {tabContent}
-    </Layout>
+        {tabContent}
+        </Layout>
+      </SingleOrgActivator>
+    </InviteTicketRedirect>
   )
 }

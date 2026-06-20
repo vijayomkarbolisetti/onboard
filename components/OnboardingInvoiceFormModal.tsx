@@ -2,6 +2,7 @@
 
 import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
+import { notify } from '@/lib/toast'
 import type {
   CreateOnboardingInvoiceInput,
   OnboardingInvoiceRecord,
@@ -46,7 +47,6 @@ export function OnboardingInvoiceFormModal({
 }: OnboardingInvoiceFormModalProps) {
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const isEdit = mode === 'edit'
 
   useEffect(() => {
@@ -70,25 +70,23 @@ export function OnboardingInvoiceFormModal({
     } else {
       setForm(emptyForm)
     }
-    setError(null)
   }, [open, isEdit, initial])
 
   if (!open) return null
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    setError(null)
 
     if (!form.companyName.trim()) {
-      setError('Company name is required')
+      notify.error('Company name is required')
       return
     }
     if (!form.saasMspAgreement) {
-      setError('Please select SaaS or MSP')
+      notify.error('Please select SaaS or MSP')
       return
     }
     if (!form.onBoardDate) {
-      setError('On board date is required')
+      notify.error('On board date is required')
       return
     }
 
@@ -105,10 +103,11 @@ export function OnboardingInvoiceFormModal({
         invoiceCycle: form.invoiceCycle.trim(),
         nextInvoiceStatus: form.nextInvoiceStatus.trim(),
       })
+      notify.success(isEdit ? 'Record updated' : 'Record added')
       setForm(emptyForm)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save record')
+      notify.error(err instanceof Error ? err.message : 'Failed to save record')
     } finally {
       setSubmitting(false)
     }
@@ -117,7 +116,6 @@ export function OnboardingInvoiceFormModal({
   const handleClose = () => {
     if (submitting) return
     setForm(emptyForm)
-    setError(null)
     onClose()
   }
 
@@ -285,12 +283,6 @@ export function OnboardingInvoiceFormModal({
               />
             </Field>
           </div>
-
-          {error && (
-            <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
-              {error}
-            </p>
-          )}
 
           <div className="mt-6 flex justify-end gap-3">
             <button

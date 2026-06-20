@@ -2,6 +2,7 @@
 
 import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
+import { notify } from '@/lib/toast'
 import type { CreateExpenseInput, Expense } from '@/types'
 
 interface ExpenseFormModalProps {
@@ -32,7 +33,6 @@ export function ExpenseFormModal({
 }: ExpenseFormModalProps) {
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const isEdit = mode === 'edit'
 
   useEffect(() => {
@@ -49,21 +49,19 @@ export function ExpenseFormModal({
     } else {
       setForm(emptyForm)
     }
-    setError(null)
   }, [open, isEdit, initial])
 
   if (!open) return null
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    setError(null)
 
     if (!form.toolName.trim()) {
-      setError('Tool name is required')
+      notify.error('Tool name is required')
       return
     }
     if (!form.invoiceDate) {
-      setError('Invoice date is required')
+      notify.error('Invoice date is required')
       return
     }
 
@@ -77,10 +75,11 @@ export function ExpenseFormModal({
         amount: form.amount,
         currency: form.currency.trim() || 'USD',
       })
+      notify.success(isEdit ? 'Expense updated' : 'Expense added')
       setForm(emptyForm)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save expense')
+      notify.error(err instanceof Error ? err.message : 'Failed to save expense')
     } finally {
       setSubmitting(false)
     }
@@ -89,7 +88,6 @@ export function ExpenseFormModal({
   const handleClose = () => {
     if (submitting) return
     setForm(emptyForm)
-    setError(null)
     onClose()
   }
 
@@ -187,12 +185,6 @@ export function ExpenseFormModal({
               </select>
             </Field>
           </div>
-
-          {error && (
-            <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
-              {error}
-            </p>
-          )}
 
           <div className="mt-6 flex justify-end gap-3">
             <button

@@ -3,6 +3,7 @@
 import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { notify } from '@/lib/toast'
 import type { CreateOnboardingInput, Onboarding } from '@/types'
 
 interface OnboardingFormModalProps {
@@ -34,7 +35,6 @@ export function OnboardingFormModal({
 }: OnboardingFormModalProps) {
   const [form, setForm] = useState<CreateOnboardingInput>(emptyForm)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
 
   const isEdit = mode === 'edit'
@@ -69,7 +69,6 @@ export function OnboardingFormModal({
     } else {
       setForm(emptyForm)
     }
-    setError(null)
   }, [open, isEdit, initial])
 
   const setNumberField = (key: keyof CreateOnboardingInput, value: string) => {
@@ -80,28 +79,26 @@ export function OnboardingFormModal({
   const handleClose = () => {
     if (submitting) return
     setForm(emptyForm)
-    setError(null)
     onClose()
   }
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    setError(null)
 
     if (!form.organization.trim()) {
-      setError('Organization is required')
+      notify.error('Organization is required')
       return
     }
     if (!form.onboardingDate) {
-      setError('Onboarding date is required')
+      notify.error('Onboarding date is required')
       return
     }
     if (!form.endDate) {
-      setError('End date is required')
+      notify.error('End date is required')
       return
     }
     if (!form.campaignLaunchDate) {
-      setError('Campaign launch date is required')
+      notify.error('Campaign launch date is required')
       return
     }
 
@@ -118,10 +115,11 @@ export function OnboardingFormModal({
         status: form.status.trim(),
         remark: form.remark.trim(),
       })
+      notify.success(isEdit ? 'Client tracker updated' : 'Client tracker created')
       setForm(emptyForm)
       onClose()
     } catch (err) {
-      setError(
+      notify.error(
         err instanceof Error
           ? err.message
           : `Failed to ${isEdit ? 'update' : 'create'} client tracker`,
@@ -257,12 +255,6 @@ export function OnboardingFormModal({
                 className="wyra-input resize-none"
               />
             </label>
-
-            {error && (
-              <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
-                {error}
-              </p>
-            )}
           </div>
 
           <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-theme p-5 sm:flex-row sm:justify-end sm:p-6">

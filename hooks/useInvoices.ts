@@ -6,6 +6,7 @@ import {
   fetchInvoices,
   updateInvoiceStatus,
 } from '@/lib/dataService'
+import { notify } from '@/lib/toast'
 import type { CreateInvoiceInput, Invoice } from '@/types'
 
 export function useInvoices() {
@@ -20,7 +21,9 @@ export function useInvoices() {
       const data = await fetchInvoices()
       setInvoices(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load invoices')
+      const message = err instanceof Error ? err.message : 'Failed to load invoices'
+      setError(message)
+      notify.error(message)
     } finally {
       setLoading(false)
     }

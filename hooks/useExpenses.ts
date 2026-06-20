@@ -8,6 +8,7 @@ import {
   fetchExpenses,
   updateExpense,
 } from '@/lib/dataService'
+import { notify } from '@/lib/toast'
 import type { CreateExpenseInput, Expense } from '@/types'
 
 export function useExpenses() {
@@ -21,7 +22,9 @@ export function useExpenses() {
     try {
       setExpenses(await fetchExpenses())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load expenses')
+      const message = err instanceof Error ? err.message : 'Failed to load expenses'
+      setError(message)
+      notify.error(message)
     } finally {
       setLoading(false)
     }
