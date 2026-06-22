@@ -77,19 +77,6 @@ export function OnboardingInvoiceFormModal({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
 
-    if (!form.companyName.trim()) {
-      notify.error('Company name is required')
-      return
-    }
-    if (!form.saasMspAgreement) {
-      notify.error('Please select SaaS or MSP')
-      return
-    }
-    if (!form.onBoardDate) {
-      notify.error('On board date is required')
-      return
-    }
-
     setSubmitting(true)
     try {
       await onSubmit({

@@ -1,6 +1,18 @@
 'use client'
 
-import { Building2, Calendar, MessageSquare, Pencil, Plus, Rocket, Target, Trash2, Users } from 'lucide-react'
+import {
+  Building2,
+  Calendar,
+  ExternalLink,
+  FileText,
+  MessageSquare,
+  Pencil,
+  Plus,
+  Rocket,
+  Target,
+  Trash2,
+  Users,
+} from 'lucide-react'
 import { useState } from 'react'
 import { OnboardingFormModal } from '@/components/OnboardingFormModal'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
@@ -121,6 +133,33 @@ export function OnboardingDetails({
                 </div>
               </div>
 
+              {item.subscriptionSummary ? (
+                <div className="mt-4 rounded-xl border border-theme bg-theme-hover px-3 py-2.5 text-sm">
+                  <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-theme-muted">
+                    <FileText size={14} className="text-aqua" />
+                    Subscription Summary
+                  </div>
+                  <p className="text-theme-body leading-relaxed">{item.subscriptionSummary}</p>
+                </div>
+              ) : null}
+
+              {item.agreementDocumentLink ? (
+                <div className="mt-4 rounded-xl border border-theme bg-theme-hover px-3 py-2.5 text-sm">
+                  <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-theme-muted">
+                    <ExternalLink size={14} className="text-aqua" />
+                    Agreement Document
+                  </div>
+                  <a
+                    href={item.agreementDocumentLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="break-all text-aqua transition hover:text-aqua-dark hover:underline"
+                  >
+                    {item.agreementDocumentLink}
+                  </a>
+                </div>
+              ) : null}
+
               <div className="mt-5 grid gap-2.5 text-sm">
                 <div className="flex items-center gap-2.5 text-theme-muted">
                   <Calendar size={15} className="shrink-0 text-aqua" />
@@ -181,6 +220,7 @@ export function OnboardingDetails({
       <OnboardingFormModal
         open={Boolean(editing)}
         mode="edit"
+        key={editing?.id ?? 'edit'}
         initial={editing}
         onClose={() => setEditing(null)}
         onSubmit={async (input) => {

@@ -56,15 +56,6 @@ export function ExpenseFormModal({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
 
-    if (!form.toolName.trim()) {
-      notify.error('Tool name is required')
-      return
-    }
-    if (!form.invoiceDate) {
-      notify.error('Invoice date is required')
-      return
-    }
-
     setSubmitting(true)
     try {
       await onSubmit({

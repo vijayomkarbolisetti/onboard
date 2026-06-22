@@ -6,6 +6,8 @@ export interface Onboarding {
   id: string
   organizationId?: string
   organization: string
+  subscriptionSummary?: string
+  agreementDocumentLink?: string
   onboardingDate: string
   endDate: string
   campaignLaunchDate: string
@@ -51,6 +53,8 @@ export interface Invoice {
 
 export interface CreateOnboardingInput {
   organization: string
+  subscriptionSummary: string
+  agreementDocumentLink: string
   onboardingDate: string
   endDate: string
   campaignLaunchDate: string
