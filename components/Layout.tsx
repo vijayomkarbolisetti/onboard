@@ -1,15 +1,18 @@
 'use client'
 
-import { UserButton } from '@clerk/nextjs'
+import { useClerk, useUser } from '@clerk/nextjs'
 import {
   CircleDollarSign,
   FileText,
+  LogOut,
   Receipt,
+  Settings,
   UserPlus,
   Users,
   Wallet,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { WyraLogo } from '@/components/WyraLogo'
 import { cn } from '@/lib/utils'
@@ -29,6 +32,116 @@ const navItems: { id: TabId; label: string; icon: typeof Users }[] = [
   { id: 'expenses', label: 'Expenses', icon: Wallet },
   { id: 'team', label: 'Team & Invites', icon: UserPlus },
 ]
+
+function getUserInitials(firstName?: string | null, lastName?: string | null, email?: string) {
+  const first = firstName?.trim().charAt(0) ?? ''
+  const last = lastName?.trim().charAt(0) ?? ''
+  if (first || last) {
+    return `${first}${last}`.toUpperCase()
+  }
+  return email?.charAt(0).toUpperCase() ?? 'U'
+}
+
+function WyraUserMenu() {
+  const { user, isLoaded } = useUser()
+  const { signOut, openUserProfile } = useClerk()
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [open])
+
+  if (!isLoaded) {
+    return <div className="h-10 w-10 rounded-full bg-theme-elevated" aria-hidden />
+  }
+
+  if (!user) {
+    return null
+  }
+
+  const email = user.primaryEmailAddress?.emailAddress ?? 'Account'
+  const initials = getUserInitials(user.firstName, user.lastName, email)
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-theme bg-theme-elevated transition hover:border-aqua/40"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="Open account menu"
+      >
+        {user.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span className="bg-wyra-gradient text-xs font-bold text-white">{initials}</span>
+        )}
+      </button>
+
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-theme bg-theme-modal shadow-[var(--theme-modal-shadow)]"
+        >
+          <div className="flex items-center gap-3 border-b border-theme px-4 py-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-theme bg-theme-elevated">
+              {user.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="bg-wyra-gradient flex h-full w-full items-center justify-center text-xs font-bold text-white">
+                  {initials}
+                </span>
+              )}
+            </div>
+            <p className="truncate text-sm font-medium text-theme-fg">{email}</p>
+          </div>
+
+          <div className="p-2">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false)
+                openUserProfile()
+              }}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-theme-body transition hover:bg-theme-hover hover:text-theme-fg"
+            >
+              <Settings size={16} />
+              Manage account
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false)
+                void signOut({ redirectUrl: '/sign-in' })
+              }}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-theme-body transition hover:bg-theme-hover hover:text-theme-fg"
+            >
+              <LogOut size={16} />
+              Sign out
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
   return (
@@ -71,7 +184,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
             <WyraLogo width={110} height={36} className="h-8 w-auto object-contain" />
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              <UserButton />
+              <WyraUserMenu />
             </div>
           </div>
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
@@ -95,7 +208,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
 
         <header className="sticky top-0 z-20 hidden items-center justify-end gap-3 border-b border-theme bg-theme-sidebar/95 px-8 py-3 backdrop-blur-sm lg:flex">
           <ThemeToggle />
-          <UserButton />
+          <WyraUserMenu />
         </header>
 
         <main className="w-full min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">

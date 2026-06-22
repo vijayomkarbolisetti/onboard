@@ -32,6 +32,16 @@ export default function RootLayout({
           taskUrls={{
             'choose-organization': '/session-tasks/choose-organization',
           }}
+          appearance={{
+            options: {
+              unsafe_disableDevelopmentModeWarnings: true,
+            },
+            elements: {
+              footer: { display: 'none' },
+              userButtonPopoverFooter: { display: 'none' },
+              userProfilePopoverFooter: { display: 'none' },
+            },
+          }}
         >
           <ThemeProvider>
             {children}
