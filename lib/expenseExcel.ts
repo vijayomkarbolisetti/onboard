@@ -1,10 +1,10 @@
 import type { CreateExpenseInput, Expense } from '@/types'
 import {
-  hasRowData,
-  normalizeHeader,
+  formatExportDate,
+  formatTextCellValue,
   parseExcelDate,
+  parseExcelSheet,
   parseNumber,
-  readExcelRows,
   writeExcelFile,
 } from '@/lib/excelUtils'
 
@@ -26,6 +26,34 @@ const HEADER_TO_FIELD: Record<string, keyof CreateExpenseInput> = {
   currency: 'currency',
 }
 
+function isSerialColumn(header: string) {
+  const normalized = header.trim().toLowerCase()
+  return normalized === 's no' || normalized === 'sno' || normalized === 's.no'
+}
+
+function resolveField(header: string): keyof CreateExpenseInput | null {
+  const normalized = header
+    .trim()
+    .toLowerCase()
+    .replace(/[\r\n\t]/g, '')
+    .replace(/\./g, '')
+    .replace(/[^a-z0-9\s/]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!normalized || isSerialColumn(normalized)) return null
+  if (HEADER_TO_FIELD[normalized]) return HEADER_TO_FIELD[normalized]
+
+  if (normalized.includes('tool') && normalized.includes('name')) return 'toolName'
+  if (normalized.includes('invoice') && normalized.includes('date')) return 'invoiceDate'
+  if (normalized.includes('card') && normalized.includes('used')) return 'cardUsed'
+  if (normalized.includes('card') && normalized.includes('owner')) return 'cardOwner'
+  if (normalized === 'amount') return 'amount'
+  if (normalized === 'currency') return 'currency'
+
+  return null
+}
+
 function emptyRecord(): CreateExpenseInput {
   return {
     toolName: '',
@@ -37,52 +65,43 @@ function emptyRecord(): CreateExpenseInput {
   }
 }
 
-function rowToRecord(row: Record<string, unknown>): CreateExpenseInput {
-  const record = emptyRecord()
+function assignField(record: CreateExpenseInput, field: keyof CreateExpenseInput, value: unknown) {
+  if (value === null || value === undefined || value === '') return
 
-  for (const [header, value] of Object.entries(row)) {
-    const field = HEADER_TO_FIELD[normalizeHeader(header)]
-    if (!field) continue
-
-    if (field === 'amount') {
-      const raw = String(value ?? '').trim()
-      if (!raw) continue
-      record[field] = parseNumber(value)
-      continue
-    }
-
-    if (field === 'invoiceDate') {
-      const parsed = parseExcelDate(value)
-      if (parsed) record[field] = parsed
-      continue
-    }
-
-    const text = String(value ?? '').trim()
-    if (text) record[field] = text
+  if (field === 'amount') {
+    record[field] = parseNumber(value)
+    return
   }
 
-  return record
+  if (field === 'invoiceDate') {
+    const parsed = parseExcelDate(value)
+    if (parsed) record[field] = parsed
+    return
+  }
+
+  const text = formatTextCellValue(value)
+  if (text) record[field] = text
 }
 
 export async function parseExpensesExcel(file: File) {
-  const rows = await readExcelRows(file)
-  const records = rows.filter(hasRowData).map(rowToRecord)
-
-  if (records.length === 0) {
-    throw new Error('No valid rows found in the Excel file')
-  }
+  const records = await parseExcelSheet({
+    file,
+    resolveField,
+    emptyRecord,
+    assignField,
+  })
 
   return { records, importedCount: records.length }
 }
 
 export function exportExpensesExcel(expenses: Expense[]) {
   const rows = expenses.map((expense) => ({
-    'Tool Name': expense.toolName,
-    'Invoice Date': expense.invoiceDate?.slice(0, 10) ?? '',
-    'Card Used': expense.cardUsed,
-    'Card Owner': expense.cardOwner,
-    Amount: expense.amount,
-    Currency: expense.currency,
+    'Tool Name': expense.toolName ?? '',
+    'Invoice Date': formatExportDate(expense.invoiceDate),
+    'Card Used': expense.cardUsed ?? '',
+    'Card Owner': expense.cardOwner ?? '',
+    Amount: expense.amount ?? 0,
+    Currency: expense.currency ?? 'USD',
   }))
 
   const timestamp = new Date().toISOString().slice(0, 10)

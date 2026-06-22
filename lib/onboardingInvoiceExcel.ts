@@ -1,6 +1,8 @@
 import * as XLSX from 'xlsx'
 import {
+  autoFitWorksheetColumns,
   cellDisplayValue,
+  formatExportDate,
   hasRowData,
   isExcelFile,
   normalizeHeader,
@@ -245,11 +247,6 @@ export async function parseOnboardingInvoicesExcel(file: File) {
   return { records, errors: [], importedCount: records.length }
 }
 
-function formatExportDate(value: string) {
-  if (!value) return ''
-  return value.slice(0, 10)
-}
-
 export function exportOnboardingInvoicesExcel(records: OnboardingInvoiceRecord[]) {
   const rows = records.map((record) => ({
     'Company Name': record.companyName,
@@ -276,6 +273,8 @@ export function exportOnboardingInvoicesExcel(records: OnboardingInvoiceRecord[]
       ? XLSX.utils.json_to_sheet(rows, { header: [...ONBOARDING_INVOICE_HEADERS] })
       : XLSX.utils.aoa_to_sheet([[...ONBOARDING_INVOICE_HEADERS]])
 
+  autoFitWorksheetColumns(worksheet, { maxWidth: 70 })
+
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Onboarding & Invoices')
 
@@ -285,6 +284,7 @@ export function exportOnboardingInvoicesExcel(records: OnboardingInvoiceRecord[]
 
 export function downloadOnboardingInvoiceTemplate() {
   const worksheet = XLSX.utils.aoa_to_sheet([[...ONBOARDING_INVOICE_HEADERS]])
+  autoFitWorksheetColumns(worksheet, { maxWidth: 70 })
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Template')
   XLSX.writeFile(workbook, 'onboarding-invoices-template.xlsx')

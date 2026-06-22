@@ -65,11 +65,26 @@ export function useOnboardingInvoices() {
     }
   }
 
+  const removeMany = async (ids: string[]) => {
+    if (ids.length === 0) return
+
+    const idSet = new Set(ids)
+    const previous = records
+    setRecords((prev) => prev.filter((item) => !idSet.has(item.id)))
+
+    try {
+      await Promise.all(ids.map((id) => deleteOnboardingInvoice(id)))
+    } catch (err) {
+      setRecords(previous)
+      throw err
+    }
+  }
+
   const importMany = async (inputs: CreateOnboardingInvoiceInput[]) => {
     const created = await createOnboardingInvoicesBulk(inputs)
     setRecords((prev) => [...created, ...prev])
     return created
   }
 
-  return { records, loading, error, reload: load, add, update, remove, importMany }
+  return { records, loading, error, reload: load, add, update, remove, removeMany, importMany }
 }

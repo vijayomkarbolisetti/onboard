@@ -293,6 +293,187 @@ export function hasRowData(row: Record<string, unknown>) {
   return Object.values(row).some((value) => String(value ?? '').trim() !== '')
 }
 
+export function formatTextCellValue(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Number.isInteger(value) ? String(Math.trunc(value)) : String(value)
+  }
+  return String(value).trim()
+}
+
+/** Matches invoice ID columns, including common typos like "Invoive Number". */
+export function matchesInvoiceNumberHeader(header: string): boolean {
+  const normalized = header
+    .trim()
+    .toLowerCase()
+    .replace(/[\r\n\t]/g, '')
+    .replace(/\./g, '')
+    .replace(/[^a-z0-9\s/]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!normalized) return false
+  if (normalized.includes('date') || normalized.includes('amount')) return false
+
+  const invoiceWord =
+    normalized.includes('invoice') ||
+    normalized.includes('invoive') ||
+    normalized.includes('invoce')
+
+  if (invoiceWord && (normalized.includes('number') || normalized.endsWith(' no'))) {
+    return true
+  }
+
+  if (
+    (normalized.includes('inv') || normalized.startsWith('inv ')) &&
+    (normalized.includes('number') || normalized.includes(' no'))
+  ) {
+    return true
+  }
+
+  return (
+    normalized === 'invoice number' ||
+    normalized === 'invoice no' ||
+    normalized === 'invoive number' ||
+    normalized === 'invoive no' ||
+    normalized === 'invoce number' ||
+    normalized === 'inv number' ||
+    normalized === 'inv no' ||
+    normalized === 'invoice id' ||
+    normalized === 'invoice #'
+  )
+}
+
+export function formatExportDate(value: string | undefined) {
+  if (!value) return ''
+  return value.slice(0, 10)
+}
+
+function findHeaderRow(
+  matrix: unknown[][],
+  resolveField: (header: string) => string | null,
+  maxScanRows = 8,
+) {
+  let headerRowIndex = 0
+  let bestScore = 0
+
+  for (let row = 0; row < Math.min(matrix.length, maxScanRows); row++) {
+    const score = matrix[row].reduce<number>((count, cell) => {
+      return resolveField(String(cell ?? '')) ? count + 1 : count
+    }, 0)
+
+    if (score > bestScore) {
+      bestScore = score
+      headerRowIndex = row
+    }
+  }
+
+  return { headerRowIndex, bestScore }
+}
+
+export async function parseExcelSheet<T extends object>(options: {
+  file: File
+  resolveField: (header: string) => keyof T | null
+  emptyRecord: () => T
+  assignField: (record: T, field: keyof T, value: unknown) => void
+  minHeaderMatches?: number
+}) {
+  const { file, resolveField, emptyRecord, assignField, minHeaderMatches = 2 } = options
+
+  if (!isExcelFile(file)) {
+    throw new Error('Only Excel files (.xlsx, .xls) are supported')
+  }
+
+  const buffer = await file.arrayBuffer()
+  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, cellNF: true })
+  const sheetName = workbook.SheetNames[0]
+  if (!sheetName) {
+    throw new Error('The Excel file has no worksheets')
+  }
+
+  const sheet = workbook.Sheets[sheetName]
+  const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+    header: 1,
+    defval: '',
+    raw: false,
+  })
+
+  if (matrix.length < 2) {
+    throw new Error('The Excel file has no data rows')
+  }
+
+  const { headerRowIndex, bestScore } = findHeaderRow(matrix, (header) => {
+    const field = resolveField(header)
+    return field ? String(field) : null
+  })
+  if (bestScore < minHeaderMatches) {
+    throw new Error('Could not find a valid header row in the Excel file')
+  }
+
+  const headerRow = matrix[headerRowIndex] ?? []
+  const fieldByColumn = headerRow.map((header) => resolveField(String(header ?? '')))
+  const records: T[] = []
+
+  for (let rowIndex = headerRowIndex + 1; rowIndex < matrix.length; rowIndex++) {
+    const row = matrix[rowIndex] ?? []
+    const rowObject: Record<string, unknown> = {}
+
+    row.forEach((value, columnIndex) => {
+      const field = fieldByColumn[columnIndex]
+      if (!field) return
+      const cell = sheet[XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex })]
+      rowObject[field as string] = cellDisplayValue(cell) || value
+    })
+
+    if (!hasRowData(rowObject)) continue
+
+    const record = emptyRecord()
+    for (const [field, value] of Object.entries(rowObject)) {
+      assignField(record, field as keyof T, value)
+    }
+    records.push(record)
+  }
+
+  if (records.length === 0) {
+    throw new Error('No valid rows found in the Excel file')
+  }
+
+  return records
+}
+
+export function autoFitWorksheetColumns(
+  worksheet: XLSX.WorkSheet,
+  options?: { minWidth?: number; maxWidth?: number; padding?: number },
+) {
+  if (!worksheet['!ref']) return
+
+  const minWidth = options?.minWidth ?? 10
+  const maxWidth = options?.maxWidth ?? 55
+  const padding = options?.padding ?? 2
+  const range = XLSX.utils.decode_range(worksheet['!ref'])
+  const cols: XLSX.ColInfo[] = []
+
+  for (let column = range.s.c; column <= range.e.c; column++) {
+    let longest = minWidth
+
+    for (let row = range.s.r; row <= range.e.r; row++) {
+      const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: column })]
+      if (!cell) continue
+
+      const text =
+        cell.w != null && String(cell.w).trim() !== ''
+          ? String(cell.w)
+          : String(cell.v ?? '')
+
+      longest = Math.max(longest, text.length)
+    }
+
+    cols.push({ wch: Math.min(longest + padding, maxWidth) })
+  }
+
+  worksheet['!cols'] = cols
+}
+
 export function writeExcelFile(
   sheetName: string,
   headers: readonly string[],
@@ -304,7 +485,9 @@ export function writeExcelFile(
       ? XLSX.utils.json_to_sheet(rows, { header: [...headers] })
       : XLSX.utils.aoa_to_sheet([[...headers]])
 
+  autoFitWorksheetColumns(worksheet)
+
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName)
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31))
   XLSX.writeFile(workbook, filename)
 }

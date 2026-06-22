@@ -1,8 +1,11 @@
 'use client'
 
 import { Download, Pencil, Plus, Trash2, Upload, Wallet } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { BulkDeleteBar, BulkSelectCheckbox } from '@/components/BulkDeleteBar'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
+import { useBulkDeleteConfirm } from '@/hooks/useBulkDeleteConfirm'
+import { useBulkSelection } from '@/hooks/useBulkSelection'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import { exportExpensesExcel, parseExpensesExcel } from '@/lib/expenseExcel'
 import { isExcelFile } from '@/lib/excelUtils'
@@ -17,6 +20,7 @@ interface ExpensesProps {
   onCreate: (input: CreateExpenseInput) => Promise<void>
   onUpdate: (id: string, input: CreateExpenseInput) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  onDeleteMany: (ids: string[]) => Promise<void>
   onImport: (inputs: CreateExpenseInput[]) => Promise<void>
 }
 
@@ -60,16 +64,28 @@ export function Expenses({
   onCreate,
   onUpdate,
   onDelete,
+  onDeleteMany,
   onImport,
 }: ExpensesProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const itemIds = useMemo(() => expenses.map((expense) => expense.id), [expenses])
+  const bulk = useBulkSelection(itemIds)
   const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
     onConfirm: onDelete,
     successMessage: 'Expense deleted',
     errorMessage: 'Failed to delete expense',
+  })
+  const { openBulkDeleteConfirm, bulkDeleteModal } = useBulkDeleteConfirm({
+    onConfirm: async (ids) => {
+      await onDeleteMany(ids)
+      bulk.clear()
+    },
+    itemLabel: 'expenses',
+    successMessage: 'Selected expenses deleted',
+    errorMessage: 'Failed to delete selected expenses',
   })
 
   const handleImportClick = () => {
@@ -100,7 +116,16 @@ export function Expenses({
   }
 
   const actionToolbar = (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <BulkDeleteBar
+        selectedCount={bulk.selectedCount}
+        totalCount={expenses.length}
+        allSelected={bulk.allSelected}
+        onToggleAll={bulk.toggleAll}
+        onDeleteSelected={() => openBulkDeleteConfirm(bulk.selectedList)}
+        itemLabel="expenses"
+      />
+      <div className="flex flex-wrap items-center justify-end gap-2">
       <button
         type="button"
         onClick={handleImportClick}
@@ -125,6 +150,7 @@ export function Expenses({
         <Plus size={16} />
         Add Expense
       </button>
+      </div>
     </div>
   )
 
@@ -147,6 +173,13 @@ export function Expenses({
       <table className="wyra-data-table w-full min-w-[900px] text-left text-sm">
         <thead className="bg-theme-elevated text-xs uppercase tracking-wider text-theme-muted">
           <tr>
+            <th className="w-10 whitespace-nowrap px-4 py-3 font-semibold">
+              <BulkSelectCheckbox
+                checked={bulk.allSelected}
+                onChange={bulk.toggleAll}
+                ariaLabel="Select all expenses"
+              />
+            </th>
             {columns.map((col) => (
               <th key={col} className="whitespace-nowrap px-4 py-3 font-semibold">
                 {col}
@@ -158,6 +191,13 @@ export function Expenses({
         <tbody>
           {expenses.map((expense, index) => (
             <tr key={expense.id} className="transition hover:bg-theme-hover">
+              <td className="whitespace-nowrap px-4 py-3">
+                <BulkSelectCheckbox
+                  checked={bulk.isSelected(expense.id)}
+                  onChange={() => bulk.toggle(expense.id)}
+                  ariaLabel={`Select ${expense.toolName || 'expense'}`}
+                />
+              </td>
               {columns.map((col) => (
                 <td key={col} className="whitespace-nowrap px-4 py-3 text-theme-body">
                   {cellValue(expense, col, index)}
@@ -230,6 +270,7 @@ export function Expenses({
       />
 
       {deleteModal}
+      {bulkDeleteModal}
     </div>
   )
 }
