@@ -16,6 +16,8 @@ interface OnboardingFormModalProps {
 
 const emptyForm: CreateOnboardingInput = {
   organization: '',
+  subscriptionSummary: '',
+  agreementDocumentLink: '',
   onboardingDate: '',
   endDate: '',
   campaignLaunchDate: '',
@@ -24,6 +26,22 @@ const emptyForm: CreateOnboardingInput = {
   totalReplies: 0,
   status: '',
   remark: '',
+}
+
+function toFormValues(record: Onboarding): CreateOnboardingInput {
+  return {
+    organization: record.organization ?? '',
+    subscriptionSummary: record.subscriptionSummary ?? '',
+    agreementDocumentLink: record.agreementDocumentLink ?? '',
+    onboardingDate: record.onboardingDate ?? '',
+    endDate: record.endDate ?? '',
+    campaignLaunchDate: record.campaignLaunchDate ?? '',
+    targetedLeads: record.targetedLeads ?? 0,
+    interestedLeads: record.interestedLeads ?? 0,
+    totalReplies: record.totalReplies ?? 0,
+    status: record.status ?? '',
+    remark: record.remark ?? '',
+  }
 }
 
 export function OnboardingFormModal({
@@ -55,17 +73,7 @@ export function OnboardingFormModal({
   useEffect(() => {
     if (!open) return
     if (isEdit && initial) {
-      setForm({
-        organization: initial.organization ?? '',
-        onboardingDate: initial.onboardingDate ?? '',
-        endDate: initial.endDate ?? '',
-        campaignLaunchDate: initial.campaignLaunchDate,
-        targetedLeads: initial.targetedLeads,
-        interestedLeads: initial.interestedLeads,
-        totalReplies: initial.totalReplies,
-        status: initial.status,
-        remark: initial.remark,
-      })
+      setForm(toFormValues(initial))
     } else {
       setForm(emptyForm)
     }
@@ -85,27 +93,12 @@ export function OnboardingFormModal({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
 
-    if (!form.organization.trim()) {
-      notify.error('Organization is required')
-      return
-    }
-    if (!form.onboardingDate) {
-      notify.error('Onboarding date is required')
-      return
-    }
-    if (!form.endDate) {
-      notify.error('End date is required')
-      return
-    }
-    if (!form.campaignLaunchDate) {
-      notify.error('Campaign launch date is required')
-      return
-    }
-
     setSubmitting(true)
     try {
       await onSubmit({
         organization: form.organization.trim(),
+        subscriptionSummary: form.subscriptionSummary.trim(),
+        agreementDocumentLink: form.agreementDocumentLink.trim(),
         onboardingDate: form.onboardingDate,
         endDate: form.endDate,
         campaignLaunchDate: form.campaignLaunchDate,
@@ -170,6 +163,28 @@ export function OnboardingFormModal({
                 value={form.organization}
                 onChange={(e) => setForm({ ...form, organization: e.target.value })}
                 placeholder="Enter organization name"
+                className="wyra-input"
+              />
+            </label>
+
+            <label className="block space-y-2">
+              <span className="wyra-label">Subscription Summary</span>
+              <textarea
+                value={form.subscriptionSummary}
+                onChange={(e) => setForm({ ...form, subscriptionSummary: e.target.value })}
+                placeholder="Enter subscription plan, billing cycle, or package details..."
+                rows={3}
+                className="wyra-input resize-none"
+              />
+            </label>
+
+            <label className="block space-y-2">
+              <span className="wyra-label">Agreement Document Link</span>
+              <input
+                type="url"
+                value={form.agreementDocumentLink}
+                onChange={(e) => setForm({ ...form, agreementDocumentLink: e.target.value })}
+                placeholder="https://..."
                 className="wyra-input"
               />
             </label>

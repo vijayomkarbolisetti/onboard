@@ -148,10 +148,6 @@ export function TeamInvitePanel() {
 
   const handleSendInvite = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!inviteEmail.trim()) {
-      notify.error('Email address is required')
-      return
-    }
 
     setSendingInvite(true)
 

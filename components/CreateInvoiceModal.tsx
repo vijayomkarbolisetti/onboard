@@ -52,23 +52,6 @@ export function CreateInvoiceModal({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
 
-    if (!form.onboardingId) {
-      notify.error('Please select an onboarding')
-      return
-    }
-    if (!form.invoiceNumber.trim()) {
-      notify.error('Invoice number is required')
-      return
-    }
-    if (!form.amount || form.amount <= 0) {
-      notify.error('Amount must be greater than zero')
-      return
-    }
-    if (!form.issuedDate || !form.dueDate) {
-      notify.error('Issued and due dates are required')
-      return
-    }
-
     setSubmitting(true)
     try {
       await onSubmit({

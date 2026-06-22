@@ -37,10 +37,6 @@ export function SidebarInviteSection({ onTabChange }: SidebarInviteSectionProps)
 
   const handleQuickInvite = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!email.trim()) {
-      return
-    }
-
     setSending(true)
 
     try {
