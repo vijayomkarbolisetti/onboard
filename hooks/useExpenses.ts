@@ -64,26 +64,12 @@ export function useExpenses() {
     }
   }
 
-  const removeMany = async (ids: string[]) => {
-    if (ids.length === 0) return
-
-    const idSet = new Set(ids)
-    const previous = expenses
-    setExpenses((prev) => prev.filter((item) => !idSet.has(item.id)))
-
-    try {
-      await Promise.all(ids.map((id) => deleteExpense(id)))
-    } catch (err) {
-      setExpenses(previous)
-      throw err
-    }
-  }
-
   const importMany = async (inputs: CreateExpenseInput[]) => {
-    const created = await createExpensesBulk(inputs)
-    setExpenses((prev) => [...created, ...prev])
-    return created
+    if (inputs.length === 0) return []
+    await createExpensesBulk(inputs)
+    await load()
+    return inputs.length
   }
 
-  return { expenses, loading, error, reload: load, add, update, remove, removeMany, importMany }
+  return { expenses, loading, error, reload: load, add, update, remove, importMany }
 }

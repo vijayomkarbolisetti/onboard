@@ -12,11 +12,8 @@ import {
   Trash2,
   Users,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { BulkDeleteBar, BulkSelectCheckbox } from '@/components/BulkDeleteBar'
+import { useState } from 'react'
 import { OnboardingFormModal } from '@/components/OnboardingFormModal'
-import { useBulkDeleteConfirm } from '@/hooks/useBulkDeleteConfirm'
-import { useBulkSelection } from '@/hooks/useBulkSelection'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import type { CreateOnboardingInput, Onboarding } from '@/types'
 import {
@@ -33,7 +30,6 @@ interface OnboardingDetailsProps {
   onCreate: (input: CreateOnboardingInput) => Promise<void>
   onUpdate: (id: string, input: CreateOnboardingInput) => Promise<void>
   onDelete: (id: string) => Promise<void>
-  onDeleteMany: (ids: string[]) => Promise<void>
 }
 
 export function OnboardingDetails({
@@ -42,45 +38,21 @@ export function OnboardingDetails({
   onCreate,
   onUpdate,
   onDelete,
-  onDeleteMany,
 }: OnboardingDetailsProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Onboarding | null>(null)
-  const itemIds = useMemo(() => onboardings.map((item) => item.id), [onboardings])
-  const bulk = useBulkSelection(itemIds)
   const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
     onConfirm: onDelete,
     successMessage: 'Client tracker deleted',
     errorMessage: 'Failed to delete client tracker',
   })
-  const { openBulkDeleteConfirm, bulkDeleteModal } = useBulkDeleteConfirm({
-    onConfirm: async (ids) => {
-      await onDeleteMany(ids)
-      bulk.clear()
-    },
-    itemLabel: 'client trackers',
-    successMessage: 'Selected client trackers deleted',
-    errorMessage: 'Failed to delete selected client trackers',
-  })
 
   const actionToolbar = (
-    <div className="flex w-full flex-wrap items-center gap-3">
-      {onboardings.length > 0 ? (
-        <BulkDeleteBar
-          selectedCount={bulk.selectedCount}
-          totalCount={onboardings.length}
-          allSelected={bulk.allSelected}
-          onToggleAll={bulk.toggleAll}
-          onDeleteSelected={() => openBulkDeleteConfirm(bulk.selectedList)}
-          itemLabel="client trackers"
-        />
-      ) : null}
-      <div className="ml-auto">
-        <button type="button" onClick={() => setCreateOpen(true)} className="btn-wyra">
-          <Plus size={16} />
-          Create Client Tracker
-        </button>
-      </div>
+    <div className="flex justify-end">
+      <button type="button" onClick={() => setCreateOpen(true)} className="btn-wyra">
+        <Plus size={16} />
+        Create Client Tracker
+      </button>
     </div>
   )
 
@@ -113,22 +85,13 @@ export function OnboardingDetails({
         {onboardings.map((item) => (
           <article
             key={item.id}
-            className={cn(
-              'glass-panel flex h-full flex-col overflow-hidden transition duration-300 hover:border-aqua/30',
-              bulk.isSelected(item.id) && 'border-aqua/40 ring-1 ring-aqua/30',
-            )}
+            className="glass-panel flex h-full flex-col overflow-hidden transition duration-300 hover:border-aqua/30"
           >
             <div className="h-0.5 shrink-0 bg-wyra-gradient opacity-80" />
 
             <div className="flex flex-1 flex-col p-5">
               <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <BulkSelectCheckbox
-                    checked={bulk.isSelected(item.id)}
-                    onChange={() => bulk.toggle(item.id)}
-                    ariaLabel={`Select ${item.organization || 'client tracker'}`}
-                  />
-                  <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1">
                   <h3 className="truncate text-lg font-bold text-theme-fg">
                     {item.organization || 'Unnamed organization'}
                   </h3>
@@ -146,7 +109,6 @@ export function OnboardingDetails({
                   >
                     {onboardingStatusLabel(item.status)}
                   </span>
-                  </div>
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1">
@@ -254,7 +216,6 @@ export function OnboardingDetails({
       />
 
       {deleteModal}
-      {bulkDeleteModal}
     </div>
   )
 }

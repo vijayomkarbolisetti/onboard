@@ -36,6 +36,7 @@ export function PaidInvoiceFormModal({
   onSubmit,
 }: PaidInvoiceFormModalProps) {
   const [form, setForm] = useState(emptyForm)
+  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const isEdit = mode === 'edit'
 
@@ -52,8 +53,10 @@ export function PaidInvoiceFormModal({
         paymentDate: initial.paymentDate,
         paymentMethod: initial.paymentMethod,
       })
+      setSelectedCompanies([])
     } else {
       setForm(emptyForm)
+      setSelectedCompanies([])
     }
   }, [open, isEdit, initial])
 
@@ -62,20 +65,40 @@ export function PaidInvoiceFormModal({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
 
+    const payload = {
+      invoiceDate: form.invoiceDate,
+      customerName: form.customerName.trim(),
+      invoiceNumber: form.invoiceNumber.trim(),
+      invoiceAmount: form.invoiceAmount,
+      status: form.status.trim(),
+      paymentDate: form.paymentDate,
+      paymentMethod: form.paymentMethod.trim(),
+    }
+
+    const companies = isEdit
+      ? [form.companyName.trim()].filter(Boolean)
+      : selectedCompanies.map((name) => name.trim()).filter(Boolean)
+
     setSubmitting(true)
     try {
-      await onSubmit({
-        invoiceDate: form.invoiceDate,
-        customerName: form.customerName.trim(),
-        companyName: form.companyName.trim(),
-        invoiceNumber: form.invoiceNumber.trim(),
-        invoiceAmount: form.invoiceAmount,
-        status: form.status.trim(),
-        paymentDate: form.paymentDate,
-        paymentMethod: form.paymentMethod.trim(),
-      })
-      notify.success(isEdit ? 'Paid invoice updated' : 'Paid invoice added')
+      if (isEdit) {
+        await onSubmit({ ...payload, companyName: form.companyName.trim() })
+      } else if (companies.length === 0) {
+        await onSubmit({ ...payload, companyName: '' })
+      } else {
+        for (const companyName of companies) {
+          await onSubmit({ ...payload, companyName })
+        }
+      }
+      notify.success(
+        isEdit
+          ? 'Paid invoice updated'
+          : companies.length <= 1
+            ? 'Paid invoice added'
+            : `${companies.length} paid invoices added`,
+      )
       setForm(emptyForm)
+      setSelectedCompanies([])
       onClose()
     } catch (err) {
       notify.error(err instanceof Error ? err.message : 'Failed to save invoice')
@@ -87,6 +110,7 @@ export function PaidInvoiceFormModal({
   const handleClose = () => {
     if (submitting) return
     setForm(emptyForm)
+    setSelectedCompanies([])
     onClose()
   }
 
@@ -150,11 +174,20 @@ export function PaidInvoiceFormModal({
             </Field>
 
             <Field label="Company Name">
-              <CompanyNameSelect
-                value={form.companyName}
-                onChange={(value) => set('companyName', value)}
-                companyNames={companyNames}
-              />
+              {isEdit ? (
+                <CompanyNameSelect
+                  value={form.companyName}
+                  onChange={(value) => set('companyName', value)}
+                  companyNames={companyNames}
+                />
+              ) : (
+                <CompanyNameSelect
+                  multiple
+                  value={selectedCompanies}
+                  onChange={setSelectedCompanies}
+                  companyNames={companyNames}
+                />
+              )}
             </Field>
 
             <Field label="Invoice Amount (USD)">

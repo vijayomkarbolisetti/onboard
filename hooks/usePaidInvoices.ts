@@ -64,26 +64,11 @@ export function usePaidInvoices() {
     }
   }
 
-  const removeMany = async (ids: string[]) => {
-    if (ids.length === 0) return
-
-    const idSet = new Set(ids)
-    const previous = invoices
-    setInvoices((prev) => prev.filter((item) => !idSet.has(item.id)))
-
-    try {
-      await Promise.all(ids.map((id) => deletePaidInvoice(id)))
-    } catch (err) {
-      setInvoices(previous)
-      throw err
-    }
-  }
-
   const importMany = async (inputs: CreatePaidInvoiceInput[]) => {
     const created = await createPaidInvoicesBulk(inputs)
     setInvoices((prev) => [...created, ...prev])
     return created
   }
 
-  return { invoices, loading, error, reload: load, add, update, remove, removeMany, importMany }
+  return { invoices, loading, error, reload: load, add, update, remove, importMany }
 }

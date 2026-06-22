@@ -1,11 +1,8 @@
 'use client'
 
 import { Download, FileText, Pencil, Plus, Trash2, Upload } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
-import { BulkDeleteBar, BulkSelectCheckbox } from '@/components/BulkDeleteBar'
+import { useRef, useState } from 'react'
 import { OpenInvoiceFormModal } from '@/components/OpenInvoiceFormModal'
-import { useBulkDeleteConfirm } from '@/hooks/useBulkDeleteConfirm'
-import { useBulkSelection } from '@/hooks/useBulkSelection'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
@@ -24,7 +21,6 @@ interface OpenInvoicesProps {
   onCreate: (input: CreateOpenInvoiceInput) => Promise<void>
   onUpdate: (id: string, input: CreateOpenInvoiceInput) => Promise<void>
   onDelete: (id: string) => Promise<void>
-  onDeleteMany: (ids: string[]) => Promise<void>
   onImport: (inputs: CreateOpenInvoiceInput[]) => Promise<void>
 }
 
@@ -73,28 +69,16 @@ export function OpenInvoices({
   onCreate,
   onUpdate,
   onDelete,
-  onDeleteMany,
   onImport,
 }: OpenInvoicesProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<OpenInvoice | null>(null)
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const itemIds = useMemo(() => invoices.map((invoice) => invoice.id), [invoices])
-  const bulk = useBulkSelection(itemIds)
   const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
     onConfirm: onDelete,
     successMessage: 'Open invoice deleted',
     errorMessage: 'Failed to delete open invoice',
-  })
-  const { openBulkDeleteConfirm, bulkDeleteModal } = useBulkDeleteConfirm({
-    onConfirm: async (ids) => {
-      await onDeleteMany(ids)
-      bulk.clear()
-    },
-    itemLabel: 'invoices',
-    successMessage: 'Selected invoices deleted',
-    errorMessage: 'Failed to delete selected invoices',
   })
 
   const handleImportClick = () => {
@@ -125,16 +109,7 @@ export function OpenInvoices({
   }
 
   const actionToolbar = (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <BulkDeleteBar
-        selectedCount={bulk.selectedCount}
-        totalCount={invoices.length}
-        allSelected={bulk.allSelected}
-        onToggleAll={bulk.toggleAll}
-        onDeleteSelected={() => openBulkDeleteConfirm(bulk.selectedList)}
-        itemLabel="invoices"
-      />
-      <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-2">
       <button
         type="button"
         onClick={handleImportClick}
@@ -159,7 +134,6 @@ export function OpenInvoices({
         <Plus size={16} />
         Add Open Invoice
       </button>
-      </div>
     </div>
   )
 
@@ -182,13 +156,6 @@ export function OpenInvoices({
       <table className="wyra-data-table w-full min-w-[1000px] text-left text-sm">
         <thead className="bg-theme-elevated text-xs uppercase tracking-wider text-theme-muted">
           <tr>
-            <th className="w-10 whitespace-nowrap px-4 py-3 font-semibold">
-              <BulkSelectCheckbox
-                checked={bulk.allSelected}
-                onChange={bulk.toggleAll}
-                ariaLabel="Select all invoices"
-              />
-            </th>
             {columns.map((col) => (
               <th key={col} className="whitespace-nowrap px-4 py-3 font-semibold">
                 {col}
@@ -200,13 +167,6 @@ export function OpenInvoices({
         <tbody>
           {invoices.map((invoice, index) => (
             <tr key={invoice.id} className="transition hover:bg-theme-hover">
-              <td className="whitespace-nowrap px-4 py-3">
-                <BulkSelectCheckbox
-                  checked={bulk.isSelected(invoice.id)}
-                  onChange={() => bulk.toggle(invoice.id)}
-                  ariaLabel={`Select ${invoice.companyName || 'invoice'}`}
-                />
-              </td>
               {columns.map((col) => (
                 <td key={col} className="whitespace-nowrap px-4 py-3 text-theme-body">
                   {cellValue(invoice, col, index)}
@@ -285,7 +245,6 @@ export function OpenInvoices({
       />
 
       {deleteModal}
-      {bulkDeleteModal}
     </div>
   )
 }

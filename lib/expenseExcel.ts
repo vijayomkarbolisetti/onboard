@@ -1,6 +1,6 @@
 import type { CreateExpenseInput, Expense } from '@/types'
+import { formatDate } from '@/utils/format'
 import {
-  formatExportDate,
   formatTextCellValue,
   parseExcelDate,
   parseExcelSheet,
@@ -9,6 +9,7 @@ import {
 } from '@/lib/excelUtils'
 
 export const EXPENSE_HEADERS = [
+  'NO',
   'Tool Name',
   'Invoice Date',
   'Card Used',
@@ -16,6 +17,8 @@ export const EXPENSE_HEADERS = [
   'Amount',
   'Currency',
 ] as const
+
+export const EXPENSE_TABLE_COLUMNS = EXPENSE_HEADERS
 
 const HEADER_TO_FIELD: Record<string, keyof CreateExpenseInput> = {
   'tool name': 'toolName',
@@ -27,8 +30,22 @@ const HEADER_TO_FIELD: Record<string, keyof CreateExpenseInput> = {
 }
 
 function isSerialColumn(header: string) {
-  const normalized = header.trim().toLowerCase()
-  return normalized === 's no' || normalized === 'sno' || normalized === 's.no'
+  const normalized = header
+    .trim()
+    .toLowerCase()
+    .replace(/\./g, '')
+    .replace(/[^a-z0-9\s#]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return (
+    normalized === 's no' ||
+    normalized === 'sno' ||
+    normalized === 'no' ||
+    normalized === 'serial' ||
+    normalized === 'sr no' ||
+    normalized === '#'
+  )
 }
 
 function resolveField(header: string): keyof CreateExpenseInput | null {
@@ -95,9 +112,10 @@ export async function parseExpensesExcel(file: File) {
 }
 
 export function exportExpensesExcel(expenses: Expense[]) {
-  const rows = expenses.map((expense) => ({
+  const rows = expenses.map((expense, index) => ({
+    NO: index + 1,
     'Tool Name': expense.toolName ?? '',
-    'Invoice Date': formatExportDate(expense.invoiceDate),
+    'Invoice Date': expense.invoiceDate ? formatDate(expense.invoiceDate) : '',
     'Card Used': expense.cardUsed ?? '',
     'Card Owner': expense.cardOwner ?? '',
     Amount: expense.amount ?? 0,

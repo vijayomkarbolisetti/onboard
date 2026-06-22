@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx'
+import * as XLSX from 'xlsx-js-style'
 
 const EXCEL_EXTENSIONS = ['.xlsx', '.xls']
 
@@ -61,7 +61,8 @@ function normalizeYear(year: number): number {
 
 function monthIndex(name: string): number | undefined {
   const key = name.toLowerCase().replace(/\./g, '').trim()
-  return MONTH_NAMES[key] ?? MONTH_NAMES[key.slice(0, 3)]
+  const corrected = MONTH_TYPOS[key] ?? key
+  return MONTH_NAMES[corrected] ?? MONTH_NAMES[corrected.slice(0, 3)]
 }
 
 export function toIsoDate(year: number, month: number, day: number): string {
@@ -83,6 +84,34 @@ function cleanDateText(value: string) {
     .replace(/\s+/g, ' ')
     .replace(/[,;]+$/g, '')
     .trim()
+}
+
+const MONTH_TYPOS: Record<string, string> = {
+  dce: 'dec',
+  decc: 'dec',
+  nove: 'nov',
+  ocot: 'oct',
+  agu: 'aug',
+  agust: 'aug',
+}
+
+function normalizeLooseDateText(value: string) {
+  let text = cleanDateText(value)
+  if (!text) return ''
+
+  text = text.replace(
+    /^([A-Za-z]{3,9})(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{2,4})$/i,
+    (_, month, day, year) => `${month} ${day}, ${year}`,
+  )
+
+  text = text.replace(/\b([A-Za-z]{3,9})\b/g, (month) => {
+    const key = month.toLowerCase()
+    const corrected = MONTH_TYPOS[key]
+    if (!corrected) return month
+    return corrected.charAt(0).toUpperCase() + corrected.slice(1)
+  })
+
+  return text.trim()
 }
 
 function parseNamedMonthDate(value: string): string {
@@ -181,7 +210,7 @@ export function parseExcelDate(value: unknown): string {
     return parseExcelSerial(value)
   }
 
-  let trimmed = cleanDateText(String(value))
+  let trimmed = normalizeLooseDateText(String(value))
   if (!trimmed) return ''
 
   trimmed = trimmed.replace(/\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AP]M)?$/i, '')
@@ -474,6 +503,22 @@ export function autoFitWorksheetColumns(
   worksheet['!cols'] = cols
 }
 
+export function applyBoldHeaderRow(worksheet: XLSX.WorkSheet) {
+  if (!worksheet['!ref']) return
+
+  const range = XLSX.utils.decode_range(worksheet['!ref'])
+  for (let column = range.s.c; column <= range.e.c; column++) {
+    const address = XLSX.utils.encode_cell({ r: range.s.r, c: column })
+    const cell = worksheet[address]
+    if (!cell) continue
+
+    cell.s = {
+      ...(cell.s ?? {}),
+      font: { bold: true },
+    }
+  }
+}
+
 export function writeExcelFile(
   sheetName: string,
   headers: readonly string[],
@@ -486,6 +531,7 @@ export function writeExcelFile(
       : XLSX.utils.aoa_to_sheet([[...headers]])
 
   autoFitWorksheetColumns(worksheet)
+  applyBoldHeaderRow(worksheet)
 
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31))
