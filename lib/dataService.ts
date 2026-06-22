@@ -94,7 +94,6 @@ export async function createOnboarding(
 ): Promise<Onboarding> {
   const record: Omit<Onboarding, 'id'> = {
     ...input,
-    status: 'pending',
     createdAt: new Date().toISOString(),
   }
 
@@ -123,8 +122,13 @@ export async function updateOnboarding(
       updateDoc(doc(firestore, 'onboardings', id), {
         organization: input.organization,
         onboardingDate: input.onboardingDate,
+        endDate: input.endDate,
         campaignLaunchDate: input.campaignLaunchDate,
-        remarks: input.remarks,
+        targetedLeads: input.targetedLeads,
+        interestedLeads: input.interestedLeads,
+        totalReplies: input.totalReplies,
+        status: input.status,
+        remark: input.remark,
       }),
       'Updating onboarding',
     )
@@ -140,8 +144,13 @@ export async function updateOnboarding(
             ...item,
             organization: input.organization,
             onboardingDate: input.onboardingDate,
+            endDate: input.endDate,
             campaignLaunchDate: input.campaignLaunchDate,
-            remarks: input.remarks,
+            targetedLeads: input.targetedLeads,
+            interestedLeads: input.interestedLeads,
+            totalReplies: input.totalReplies,
+            status: input.status,
+            remark: input.remark,
           }
         : item,
     ),

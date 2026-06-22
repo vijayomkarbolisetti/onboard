@@ -40,16 +40,18 @@ const invoiceStatusStyles: Record<InvoiceStatus, string> = {
   overdue: 'bg-red-500/15 text-red-400 border-red-500/25',
 }
 
-export function onboardingStatusClass(status: OnboardingStatus) {
-  return `border ${onboardingStatusStyles[status]}`
+export function onboardingStatusClass(status: string) {
+  const normalized = status.toLowerCase().replace(/\s+/g, '_') as OnboardingStatus
+  const style = onboardingStatusStyles[normalized]
+  return `border ${style ?? 'bg-theme-hover text-theme-muted border-theme-strong'}`
 }
 
 export function invoiceStatusClass(status: InvoiceStatus) {
   return `border ${invoiceStatusStyles[status]}`
 }
 
-export function onboardingStatusLabel(status: OnboardingStatus) {
-  return status.replace('_', ' ')
+export function onboardingStatusLabel(status: string) {
+  return status.trim() || '—'
 }
 
 export function invoiceStatusLabel(status: InvoiceStatus) {

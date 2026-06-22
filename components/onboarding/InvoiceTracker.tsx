@@ -20,7 +20,6 @@ export function InvoiceTracker({
   invoices,
   onboardings,
   loading,
-  error,
   onCreate,
   onStatusChange,
 }: InvoiceTrackerProps) {
@@ -73,12 +72,6 @@ export function InvoiceTracker({
           icon={<AlertCircle className="text-red-400" size={20} />}
         />
       </div>
-
-      {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
-        </div>
-      )}
 
       {loading ? (
         <div className="h-64 animate-pulse rounded-2xl border border-theme bg-theme-hover" />

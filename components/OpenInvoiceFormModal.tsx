@@ -3,6 +3,7 @@
 import { CompanyNameSelect } from '@/components/CompanyNameSelect'
 import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
+import { notify } from '@/lib/toast'
 import type { CreateOpenInvoiceInput, OpenInvoice } from '@/types'
 
 interface OpenInvoiceFormModalProps {
@@ -34,7 +35,6 @@ export function OpenInvoiceFormModal({
 }: OpenInvoiceFormModalProps) {
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const isEdit = mode === 'edit'
 
   useEffect(() => {
@@ -52,25 +52,23 @@ export function OpenInvoiceFormModal({
     } else {
       setForm(emptyForm)
     }
-    setError(null)
   }, [open, isEdit, initial])
 
   if (!open) return null
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    setError(null)
 
     if (!form.companyName.trim()) {
-      setError('Company name is required')
+      notify.error('Company name is required')
       return
     }
     if (!form.invoiceNumber.trim()) {
-      setError('Invoice number is required')
+      notify.error('Invoice number is required')
       return
     }
     if (!form.invoiceDate) {
-      setError('Invoice date is required')
+      notify.error('Invoice date is required')
       return
     }
 
@@ -85,10 +83,11 @@ export function OpenInvoiceFormModal({
         status: form.status.trim(),
         notes: form.notes.trim(),
       })
+      notify.success(isEdit ? 'Open invoice updated' : 'Open invoice added')
       setForm(emptyForm)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save invoice')
+      notify.error(err instanceof Error ? err.message : 'Failed to save invoice')
     } finally {
       setSubmitting(false)
     }
@@ -97,7 +96,6 @@ export function OpenInvoiceFormModal({
   const handleClose = () => {
     if (submitting) return
     setForm(emptyForm)
-    setError(null)
     onClose()
   }
 
@@ -198,12 +196,6 @@ export function OpenInvoiceFormModal({
               />
             </Field>
           </div>
-
-          {error && (
-            <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
-              {error}
-            </p>
-          )}
 
           <div className="mt-6 flex justify-end gap-3">
             <button

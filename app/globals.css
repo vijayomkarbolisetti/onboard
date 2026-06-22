@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import url('https://fonts.cdnfonts.com/css/satoshi');
 
 @theme {
   --color-aqua: #1fcc9a;
@@ -142,8 +141,14 @@ html.light ::selection {
   }
 
   html:not(.light) .glass-card {
-    background-color: color-mix(in srgb, var(--theme-surface) 92%, transparent);
-    backdrop-filter: blur(20px);
+    background-color: color-mix(in srgb, var(--theme-surface) 96%, transparent);
+  }
+
+  .content-shell {
+    border-radius: 1rem;
+    border: 1px solid var(--theme-border);
+    background-color: var(--theme-surface);
+    box-shadow: var(--theme-card-shadow);
   }
 
   .glass-panel {
@@ -225,4 +230,39 @@ label[for],
 button:disabled,
 select:disabled {
   cursor: not-allowed;
+}
+
+/* ── Toast notifications (Sonner) ── */
+.wyra-toast {
+  border: 1px solid var(--theme-border-strong) !important;
+  background: var(--theme-elevated) !important;
+  color: var(--theme-fg) !important;
+  box-shadow: var(--theme-card-shadow) !important;
+  border-radius: 0.875rem !important;
+  font-family: var(--font-sans) !important;
+}
+
+.wyra-toast-title {
+  color: var(--theme-fg) !important;
+  font-weight: 600 !important;
+}
+
+.wyra-toast-description {
+  color: var(--theme-muted) !important;
+}
+
+.wyra-toast-success {
+  border-color: rgba(31, 204, 154, 0.35) !important;
+  background: color-mix(in srgb, var(--theme-elevated) 92%, #1fcc9a 8%) !important;
+}
+
+.wyra-toast-error {
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  background: color-mix(in srgb, var(--theme-elevated) 92%, #ef4444 8%) !important;
+}
+
+.wyra-toast-close {
+  color: var(--theme-muted) !important;
+  border-color: var(--theme-border) !important;
+  background: var(--theme-hover) !important;
 }

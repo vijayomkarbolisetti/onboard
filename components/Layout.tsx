@@ -5,10 +5,12 @@ import {
   CircleDollarSign,
   FileText,
   Receipt,
+  UserPlus,
   Users,
   Wallet,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { SidebarInviteSection } from '@/components/team/SidebarInviteSection'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { WyraLogo } from '@/components/WyraLogo'
 import { cn } from '@/lib/utils'
@@ -26,6 +28,7 @@ const navItems: { id: TabId; label: string; icon: typeof Users }[] = [
   { id: 'paid-invoices', label: 'Paid Invoices', icon: CircleDollarSign },
   { id: 'open-invoices', label: 'Open Invoices', icon: FileText },
   { id: 'expenses', label: 'Expenses', icon: Wallet },
+  { id: 'team', label: 'Team & Invites', icon: UserPlus },
 ]
 
 export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
@@ -61,9 +64,11 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
             )
           })}
         </nav>
+
+        <SidebarInviteSection onTabChange={onTabChange} />
       </aside>
 
-      <div className="lg:pl-[280px]">
+      <div className="lg:pl-[280px] min-w-0">
         <header className="sticky top-0 z-20 border-b border-theme bg-theme-sidebar px-4 py-4 shadow-sm lg:hidden">
           <div className="flex items-center justify-between gap-3">
             <WyraLogo width={110} height={36} className="h-8 w-auto object-contain" />
@@ -96,7 +101,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
           <UserButton />
         </header>
 
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main className="w-full min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </main>
       </div>

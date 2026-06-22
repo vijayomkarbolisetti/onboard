@@ -8,6 +8,7 @@ import {
   fetchPaidInvoices,
   updatePaidInvoice,
 } from '@/lib/dataService'
+import { notify } from '@/lib/toast'
 import type { CreatePaidInvoiceInput, PaidInvoice } from '@/types'
 
 export function usePaidInvoices() {
@@ -21,7 +22,9 @@ export function usePaidInvoices() {
     try {
       setInvoices(await fetchPaidInvoices())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load paid invoices')
+      const message = err instanceof Error ? err.message : 'Failed to load paid invoices'
+      setError(message)
+      notify.error(message)
     } finally {
       setLoading(false)
     }

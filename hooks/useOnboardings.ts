@@ -8,6 +8,7 @@ import {
   updateOnboarding,
   updateOnboardingStatus,
 } from '@/lib/dataService'
+import { notify } from '@/lib/toast'
 import type { CreateOnboardingInput, Onboarding } from '@/types'
 
 export function useOnboardings() {
@@ -22,7 +23,9 @@ export function useOnboardings() {
       const data = await fetchOnboardings()
       setOnboardings(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load onboardings')
+      const message = err instanceof Error ? err.message : 'Failed to load onboardings'
+      setError(message)
+      notify.error(message)
     } finally {
       setLoading(false)
     }
@@ -37,7 +40,6 @@ export function useOnboardings() {
     const optimistic: Onboarding = {
       id: tempId,
       ...input,
-      status: 'pending',
       createdAt: new Date().toISOString(),
     }
 

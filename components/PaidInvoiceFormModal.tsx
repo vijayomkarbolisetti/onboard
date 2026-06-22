@@ -3,6 +3,7 @@
 import { CompanyNameSelect } from '@/components/CompanyNameSelect'
 import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
+import { notify } from '@/lib/toast'
 import type { CreatePaidInvoiceInput, PaidInvoice } from '@/types'
 
 interface PaidInvoiceFormModalProps {
@@ -35,7 +36,6 @@ export function PaidInvoiceFormModal({
 }: PaidInvoiceFormModalProps) {
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const isEdit = mode === 'edit'
 
   useEffect(() => {
@@ -54,25 +54,23 @@ export function PaidInvoiceFormModal({
     } else {
       setForm(emptyForm)
     }
-    setError(null)
   }, [open, isEdit, initial])
 
   if (!open) return null
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    setError(null)
 
     if (!form.companyName.trim()) {
-      setError('Company name is required')
+      notify.error('Company name is required')
       return
     }
     if (!form.invoiceNumber.trim()) {
-      setError('Invoice number is required')
+      notify.error('Invoice number is required')
       return
     }
     if (!form.invoiceDate) {
-      setError('Invoice date is required')
+      notify.error('Invoice date is required')
       return
     }
 
@@ -88,10 +86,11 @@ export function PaidInvoiceFormModal({
         paymentDate: form.paymentDate,
         paymentMethod: form.paymentMethod.trim(),
       })
+      notify.success(isEdit ? 'Paid invoice updated' : 'Paid invoice added')
       setForm(emptyForm)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save invoice')
+      notify.error(err instanceof Error ? err.message : 'Failed to save invoice')
     } finally {
       setSubmitting(false)
     }
@@ -100,7 +99,6 @@ export function PaidInvoiceFormModal({
   const handleClose = () => {
     if (submitting) return
     setForm(emptyForm)
-    setError(null)
     onClose()
   }
 
@@ -210,12 +208,6 @@ export function PaidInvoiceFormModal({
               />
             </Field>
           </div>
-
-          {error && (
-            <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
-              {error}
-            </p>
-          )}
 
           <div className="mt-6 flex justify-end gap-3">
             <button
