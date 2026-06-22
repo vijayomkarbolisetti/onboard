@@ -1,12 +1,13 @@
 'use client'
 
-import { useOrganization, useOrganizationList } from '@clerk/nextjs'
+import { useOrganization, useOrganizationList, useUser } from '@clerk/nextjs'
 import {
   Building2,
   Clock3,
   Loader2,
   Mail,
   Shield,
+  Trash2,
   UserPlus,
   Users,
   X,
@@ -44,6 +45,7 @@ function roleLabel(role: string) {
 
 export function TeamInvitePanel() {
   const { organization, membership, isLoaded: orgLoaded } = useOrganization()
+  const { user } = useUser()
   const { setActive } = useOrganizationList({ userMemberships: { infinite: true } })
 
   const [organizationName, setOrganizationName] = useState('Wyra')
@@ -56,6 +58,7 @@ export function TeamInvitePanel() {
   const [loadingTeam, setLoadingTeam] = useState(false)
   const [members, setMembers] = useState<TeamMember[]>([])
   const [invitations, setInvitations] = useState<TeamInvitation[]>([])
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null)
 
   const isAdmin = membership?.role === 'org:admin'
 
@@ -192,6 +195,45 @@ export function TeamInvitePanel() {
       await loadTeamData()
     } catch (err) {
       notify.error(err instanceof Error ? err.message : 'Failed to revoke invitation')
+    }
+  }
+
+  const handleRemoveMember = async (member: TeamMember) => {
+    if (!member.userId) {
+      notify.error('Cannot remove this member')
+      return
+    }
+
+    if (member.userId === user?.id) {
+      notify.error('You cannot remove yourself from the organization')
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Remove ${memberLabel(member)} from ${displayOrgName}?`,
+    )
+    if (!confirmed) {
+      return
+    }
+
+    setRemovingUserId(member.userId)
+
+    try {
+      const response = await fetch(`/api/team/members/${member.userId}`, {
+        method: 'DELETE',
+      })
+      const payload = await response.json()
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? 'Failed to remove team member')
+      }
+
+      notify.success('Team member removed')
+      await loadTeamData()
+    } catch (err) {
+      notify.error(err instanceof Error ? err.message : 'Failed to remove team member')
+    } finally {
+      setRemovingUserId(null)
     }
   }
 
@@ -359,17 +401,35 @@ export function TeamInvitePanel() {
                         <p className="truncate text-xs text-theme-muted">{member.identifier}</p>
                       </div>
                     </div>
-                    <span
-                      className={cn(
-                        'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
-                        member.role === 'org:admin'
-                          ? 'bg-aqua/15 text-aqua'
-                          : 'bg-theme-surface text-theme-muted',
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span
+                        className={cn(
+                          'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
+                          member.role === 'org:admin'
+                            ? 'bg-aqua/15 text-aqua'
+                            : 'bg-theme-surface text-theme-muted',
+                        )}
+                      >
+                        {member.role === 'org:admin' && <Shield size={12} />}
+                        {roleLabel(member.role)}
+                      </span>
+                      {isAdmin && member.userId && member.userId !== user?.id && (
+                        <button
+                          type="button"
+                          onClick={() => void handleRemoveMember(member)}
+                          disabled={removingUserId === member.userId}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
+                          title="Remove member"
+                        >
+                          {removingUserId === member.userId ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={14} />
+                          )}
+                          Remove
+                        </button>
                       )}
-                    >
-                      {member.role === 'org:admin' && <Shield size={12} />}
-                      {roleLabel(member.role)}
-                    </span>
+                    </div>
                   </li>
                 ))}
               </ul>

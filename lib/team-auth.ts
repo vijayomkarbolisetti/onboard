@@ -11,6 +11,7 @@ export type TeamAuthContext = {
 
 async function resolveOrganizationId(
   sessionOrgId: string | null | undefined,
+  userId: string,
 ): Promise<string | null> {
   const configuredOrgId = getSingleOrganizationId()
   if (configuredOrgId) {
@@ -30,7 +31,12 @@ async function resolveOrganizationId(
     return organizations[0].id
   }
 
-  return null
+  const { data: memberships } = await client.users.getOrganizationMembershipList({
+    userId,
+    limit: 1,
+  })
+
+  return memberships[0]?.organization.id ?? null
 }
 
 async function resolveMembershipRole(
@@ -60,7 +66,7 @@ export async function resolveTeamContext(): Promise<TeamAuthContext | NextRespon
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const resolvedOrgId = await resolveOrganizationId(orgId)
+  const resolvedOrgId = await resolveOrganizationId(orgId, userId)
   if (!resolvedOrgId) {
     return NextResponse.json(
       { error: 'Organization is not configured yet.' },

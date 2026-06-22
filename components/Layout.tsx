@@ -10,7 +10,6 @@ import {
   Wallet,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { SidebarInviteSection } from '@/components/team/SidebarInviteSection'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { WyraLogo } from '@/components/WyraLogo'
 import { cn } from '@/lib/utils'
@@ -64,8 +63,6 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
             )
           })}
         </nav>
-
-        <SidebarInviteSection onTabChange={onTabChange} />
       </aside>
 
       <div className="lg:pl-[280px] min-w-0">

@@ -17,7 +17,7 @@ export async function GET() {
 
     const members = data.map((membership) => ({
       id: membership.id,
-      userId: membership.publicUserData?.userId ?? membership.publicUserData?.identifier,
+      userId: membership.publicUserData?.userId ?? '',
       firstName: membership.publicUserData?.firstName ?? '',
       lastName: membership.publicUserData?.lastName ?? '',
       imageUrl: membership.publicUserData?.imageUrl ?? '',
