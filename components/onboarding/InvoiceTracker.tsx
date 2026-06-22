@@ -9,6 +9,7 @@ import { formatCurrency, formatDate, invoiceStatusClass } from '@/utils/format'
 
 interface InvoiceTrackerProps {
   invoices: Invoice[]
+  
   onboardings: Onboarding[]
   loading: boolean
   error: string | null
