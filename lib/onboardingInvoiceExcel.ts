@@ -18,6 +18,8 @@ export { isExcelFile } from '@/lib/excelUtils'
 
 export const ONBOARDING_INVOICE_HEADERS = [
   'Company Name',
+  'Subscription Summary',
+  'Agreement Document Link',
   'Saas / MSP Agreement',
   'Sponsor',
   'Partner Program',
@@ -29,11 +31,16 @@ export const ONBOARDING_INVOICE_HEADERS = [
   'Invoice Cycle',
   'No. of Invoices Generated',
   'No. of Invoices Paid',
+  'Total Amount Paid',
+  'Pending Amount',
   'Next Invoice Status',
 ] as const
 
 const HEADER_TO_FIELD: Record<string, keyof CreateOnboardingInvoiceInput> = {
   'company name': 'companyName',
+  'subscription summary': 'subscriptionSummary',
+  'agreement document link': 'agreementDocumentLink',
+  'agreement document': 'agreementDocumentLink',
   'saas msp agreement': 'saasMspAgreement',
   'saas / msp agreement': 'saasMspAgreement',
   sponsor: 'sponsor',
@@ -53,6 +60,8 @@ const HEADER_TO_FIELD: Record<string, keyof CreateOnboardingInvoiceInput> = {
   'no invoices paid': 'invoicesPaid',
   'no of invoices paid': 'invoicesPaid',
   'noof invoices paid': 'invoicesPaid',
+  'total amount paid': 'totalAmountPaid',
+  'pending amount': 'pendingAmount',
   'next invoice status': 'nextInvoiceStatus',
 }
 
@@ -62,6 +71,12 @@ function resolveField(header: string): keyof CreateOnboardingInvoiceInput | null
   if (HEADER_TO_FIELD[normalized]) return HEADER_TO_FIELD[normalized]
 
   if (normalized.includes('company') && normalized.includes('name')) return 'companyName'
+  if (normalized.includes('subscription') && normalized.includes('summary')) {
+    return 'subscriptionSummary'
+  }
+  if (normalized.includes('agreement') && normalized.includes('document')) {
+    return 'agreementDocumentLink'
+  }
   if (normalized.includes('saas') || normalized.includes('msp')) return 'saasMspAgreement'
   if (normalized.includes('partner') && normalized.includes('program')) return 'partnerProgram'
   if (normalized.includes('point') && normalized.includes('contact')) return 'pointOfContact'
@@ -77,6 +92,10 @@ function resolveField(header: string): keyof CreateOnboardingInvoiceInput | null
   }
   if (normalized.includes('invoice') && normalized.includes('cycle')) return 'invoiceCycle'
   if (normalized.includes('generated')) return 'invoicesGenerated'
+  if (normalized.includes('pending') && normalized.includes('amount')) return 'pendingAmount'
+  if (normalized.includes('total') && normalized.includes('amount') && normalized.includes('paid')) {
+    return 'totalAmountPaid'
+  }
   if (normalized.includes('paid') && normalized.includes('invoice')) return 'invoicesPaid'
   if (normalized.includes('next') && normalized.includes('status')) return 'nextInvoiceStatus'
   if (normalized === 'sponsor') return 'sponsor'
@@ -96,6 +115,8 @@ function parseAgreement(value: unknown): SaasMspAgreement | null {
 function emptyRecord(): CreateOnboardingInvoiceInput {
   return {
     companyName: '',
+    subscriptionSummary: '',
+    agreementDocumentLink: '',
     saasMspAgreement: 'SaaS',
     sponsor: '',
     partnerProgram: '',
@@ -107,6 +128,8 @@ function emptyRecord(): CreateOnboardingInvoiceInput {
     invoiceCycle: '',
     invoicesGenerated: 0,
     invoicesPaid: 0,
+    totalAmountPaid: 0,
+    pendingAmount: 0,
     nextInvoiceStatus: '',
   }
 }
@@ -124,8 +147,8 @@ function assignField(
     return
   }
 
-  if (field === 'invoiceAmount') {
-    record.invoiceAmount = parseNumber(value)
+  if (field === 'invoiceAmount' || field === 'totalAmountPaid' || field === 'pendingAmount') {
+    record[field] = parseNumber(value)
     return
   }
 
@@ -230,6 +253,8 @@ function formatExportDate(value: string) {
 export function exportOnboardingInvoicesExcel(records: OnboardingInvoiceRecord[]) {
   const rows = records.map((record) => ({
     'Company Name': record.companyName,
+    'Subscription Summary': record.subscriptionSummary ?? '',
+    'Agreement Document Link': record.agreementDocumentLink ?? '',
     'Saas / MSP Agreement': record.saasMspAgreement,
     Sponsor: record.sponsor,
     'Partner Program': record.partnerProgram,
@@ -241,6 +266,8 @@ export function exportOnboardingInvoicesExcel(records: OnboardingInvoiceRecord[]
     'Invoice Cycle': record.invoiceCycle,
     'No. of Invoices Generated': record.invoicesGenerated,
     'No. of Invoices Paid': record.invoicesPaid,
+    'Total Amount Paid': record.totalAmountPaid ?? 0,
+    'Pending Amount': record.pendingAmount ?? 0,
     'Next Invoice Status': record.nextInvoiceStatus,
   }))
 

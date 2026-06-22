@@ -3,10 +3,9 @@
 import {
   Building2,
   Calendar,
-  ExternalLink,
-  FileText,
   MessageSquare,
   Pencil,
+  Phone,
   Plus,
   Rocket,
   Target,
@@ -97,7 +96,10 @@ export function OnboardingDetails({
                     {item.organization || 'Unnamed organization'}
                   </h3>
                   <p className="mt-1 text-sm text-theme-muted">
-                    Launch: {formatDate(item.campaignLaunchDate)}
+                    1st Launch: {formatDate(item.campaignLaunchDate)}
+                    {item.noOfCampaigns != null && item.noOfCampaigns > 0
+                      ? ` · ${item.noOfCampaigns} campaign${item.noOfCampaigns === 1 ? '' : 's'}`
+                      : ''}
                   </p>
                   <span
                     className={cn(
@@ -133,34 +135,11 @@ export function OnboardingDetails({
                 </div>
               </div>
 
-              {item.subscriptionSummary ? (
-                <div className="mt-4 rounded-xl border border-theme bg-theme-hover px-3 py-2.5 text-sm">
-                  <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-theme-muted">
-                    <FileText size={14} className="text-aqua" />
-                    Subscription Summary
-                  </div>
-                  <p className="text-theme-body leading-relaxed">{item.subscriptionSummary}</p>
-                </div>
-              ) : null}
-
-              {item.agreementDocumentLink ? (
-                <div className="mt-4 rounded-xl border border-theme bg-theme-hover px-3 py-2.5 text-sm">
-                  <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-theme-muted">
-                    <ExternalLink size={14} className="text-aqua" />
-                    Agreement Document
-                  </div>
-                  <a
-                    href={item.agreementDocumentLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="break-all text-aqua transition hover:text-aqua-dark hover:underline"
-                  >
-                    {item.agreementDocumentLink}
-                  </a>
-                </div>
-              ) : null}
-
               <div className="mt-5 grid gap-2.5 text-sm">
+                <div className="flex items-center gap-2.5 text-theme-muted">
+                  <Users size={15} className="shrink-0 text-aqua" />
+                  <span>No.of AI SDRs: {item.noOfAiSdrs ?? 0}</span>
+                </div>
                 <div className="flex items-center gap-2.5 text-theme-muted">
                   <Calendar size={15} className="shrink-0 text-aqua" />
                   <span>Onboarding: {formatDate(item.onboardingDate)}</span>
@@ -171,11 +150,19 @@ export function OnboardingDetails({
                 </div>
                 <div className="flex items-center gap-2.5 text-theme-muted">
                   <Calendar size={15} className="shrink-0 text-wyra-blue" />
-                  <span>Campaign Launch: {formatDate(item.campaignLaunchDate)}</span>
+                  <span>1st campaign Launch: {formatDate(item.campaignLaunchDate)}</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-theme-muted">
+                  <Rocket size={15} className="shrink-0 text-wyra-blue" />
+                  <span>no.of campaigns: {item.noOfCampaigns ?? 0}</span>
                 </div>
                 <div className="flex items-center gap-2.5 text-theme-muted">
                   <Target size={15} className="shrink-0 text-lime" />
                   <span>Targeted Leads: {item.targetedLeads ?? 0}</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-theme-muted">
+                  <Phone size={15} className="shrink-0 text-lime" />
+                  <span>Contacted Leads: {item.contactedLeads ?? 0}</span>
                 </div>
                 <div className="flex items-center gap-2.5 text-theme-muted">
                   <Users size={15} className="shrink-0 text-wyra-blue" />

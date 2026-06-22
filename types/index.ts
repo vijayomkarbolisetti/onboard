@@ -6,12 +6,13 @@ export interface Onboarding {
   id: string
   organizationId?: string
   organization: string
-  subscriptionSummary?: string
-  agreementDocumentLink?: string
+  noOfAiSdrs?: number
   onboardingDate: string
   endDate: string
   campaignLaunchDate: string
+  noOfCampaigns?: number
   targetedLeads: number
+  contactedLeads?: number
   interestedLeads: number
   totalReplies: number
   status: string
@@ -23,6 +24,8 @@ export interface OnboardingInvoiceRecord {
   id: string
   organizationId?: string
   companyName: string
+  subscriptionSummary?: string
+  agreementDocumentLink?: string
   saasMspAgreement: SaasMspAgreement
   sponsor: string
   partnerProgram: string
@@ -34,6 +37,8 @@ export interface OnboardingInvoiceRecord {
   invoiceCycle: string
   invoicesGenerated: number
   invoicesPaid: number
+  totalAmountPaid?: number
+  pendingAmount?: number
   nextInvoiceStatus: string
   createdAt: string
 }
@@ -53,12 +58,13 @@ export interface Invoice {
 
 export interface CreateOnboardingInput {
   organization: string
-  subscriptionSummary: string
-  agreementDocumentLink: string
+  noOfAiSdrs: number
   onboardingDate: string
   endDate: string
   campaignLaunchDate: string
+  noOfCampaigns: number
   targetedLeads: number
+  contactedLeads: number
   interestedLeads: number
   totalReplies: number
   status: string
@@ -67,6 +73,8 @@ export interface CreateOnboardingInput {
 
 export interface CreateOnboardingInvoiceInput {
   companyName: string
+  subscriptionSummary: string
+  agreementDocumentLink: string
   saasMspAgreement: SaasMspAgreement
   sponsor: string
   partnerProgram: string
@@ -78,6 +86,8 @@ export interface CreateOnboardingInvoiceInput {
   invoiceCycle: string
   invoicesGenerated: number
   invoicesPaid: number
+  totalAmountPaid: number
+  pendingAmount: number
   nextInvoiceStatus: string
 }
 
