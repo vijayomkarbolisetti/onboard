@@ -29,6 +29,9 @@ export default function RootLayout({
           signInUrl="/sign-in"
           signUpUrl="/sign-up"
           afterSignOutUrl="/sign-in"
+          taskUrls={{
+            'choose-organization': '/session-tasks/choose-organization',
+          }}
         >
           <ThemeProvider>
             {children}

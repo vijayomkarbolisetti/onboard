@@ -153,8 +153,8 @@ export function OpenInvoices({
     </div>
   ) : (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1000px] text-left text-sm">
-        <thead className="border-b border-theme bg-theme-elevated text-xs uppercase tracking-wider text-theme-muted">
+      <table className="wyra-data-table w-full min-w-[1000px] text-left text-sm">
+        <thead className="bg-theme-elevated text-xs uppercase tracking-wider text-theme-muted">
           <tr>
             {columns.map((col) => (
               <th key={col} className="whitespace-nowrap px-4 py-3 font-semibold">
@@ -164,7 +164,7 @@ export function OpenInvoices({
             <th className="whitespace-nowrap px-4 py-3 font-semibold">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-theme">
+        <tbody>
           {invoices.map((invoice, index) => (
             <tr key={invoice.id} className="transition hover:bg-theme-hover">
               {columns.map((col) => (

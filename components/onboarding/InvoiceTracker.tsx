@@ -86,8 +86,8 @@ export function InvoiceTracker({
       ) : (
         <div className="overflow-hidden rounded-2xl border border-theme">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="border-b border-theme bg-theme-hover text-xs uppercase tracking-wider text-theme-muted">
+            <table className="wyra-data-table w-full min-w-[640px] text-left text-sm">
+              <thead className="bg-theme-hover text-xs uppercase tracking-wider text-theme-muted">
                 <tr>
                   <th className="px-5 py-4 font-semibold">Invoice</th>
                   <th className="px-5 py-4 font-semibold">Organization</th>
@@ -97,7 +97,7 @@ export function InvoiceTracker({
                   <th className="px-5 py-4 font-semibold">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody>
                 {invoices.map((item) => (
                   <tr key={item.id} className="transition hover:bg-theme-hover">
                     <td className="px-5 py-4 font-semibold text-theme-fg">

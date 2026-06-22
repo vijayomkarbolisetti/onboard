@@ -147,8 +147,8 @@ export function OnboardingInvoices({
     </div>
   ) : (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1400px] text-left text-sm">
-        <thead className="border-b border-theme bg-theme-elevated text-xs uppercase tracking-wider text-theme-muted">
+      <table className="wyra-data-table w-full min-w-[1400px] text-left text-sm">
+        <thead className="bg-theme-elevated text-xs uppercase tracking-wider text-theme-muted">
           <tr>
             {columns.map((col) => (
               <th key={col.key} className="whitespace-nowrap px-4 py-3 font-semibold">
@@ -157,7 +157,7 @@ export function OnboardingInvoices({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-theme">
+        <tbody>
           {records.map((record) => (
             <tr key={record.id} className="transition hover:bg-theme-hover">
               {columns.map((col) => {

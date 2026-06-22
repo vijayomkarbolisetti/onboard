@@ -7,3 +7,9 @@ export function getSingleOrganizationId(): string | null {
 export function getSingleOrganizationName(): string {
   return process.env.CLERK_ORGANIZATION_NAME?.trim() || 'Wyra'
 }
+
+export type AppOrganization = {
+  id: string
+  name: string
+  slug: string | null
+}

@@ -20,8 +20,9 @@
   --theme-muted: #94a3b8;
   --theme-body: #cbd5e1;
   --theme-label: #cbd5e1;
-  --theme-border: rgba(255, 255, 255, 0.08);
-  --theme-border-strong: rgba(255, 255, 255, 0.14);
+  --theme-border: rgba(255, 255, 255, 0.04);
+  --theme-border-strong: rgba(255, 255, 255, 0.1);
+  --theme-table-divider: rgba(148, 163, 184, 0.14);
   --theme-input-bg: #0a0e1a;
   --theme-hover: rgba(255, 255, 255, 0.06);
   --theme-modal: #0f1420;
@@ -48,6 +49,7 @@ html.light {
   --theme-label: #241f5b;
   --theme-border: #e8e6f0;
   --theme-border-strong: #d4d1e3;
+  --theme-table-divider: #e0dde8;
   --theme-input-bg: #ffffff;
   --theme-hover: #f0eef8;
   --theme-modal: #ffffff;
@@ -97,6 +99,10 @@ html.light ::selection {
   .text-theme-body { color: var(--theme-body); }
   .border-theme { border-color: var(--theme-border); }
   .border-theme-strong { border-color: var(--theme-border-strong); }
+  .border-table { border-color: var(--theme-table-divider); }
+  .divide-table > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--theme-table-divider);
+  }
 
   .bg-wyra-gradient {
     background-image: var(--theme-gradient);
@@ -265,4 +271,17 @@ select:disabled {
   color: var(--theme-muted) !important;
   border-color: var(--theme-border) !important;
   background: var(--theme-hover) !important;
+}
+
+/* Thin table row dividers */
+.wyra-data-table {
+  border-collapse: collapse;
+}
+
+.wyra-data-table thead th {
+  box-shadow: inset 0 -1px 0 0 var(--theme-table-divider);
+}
+
+.wyra-data-table tbody tr + tr td {
+  box-shadow: inset 0 1px 0 0 var(--theme-table-divider);
 }
