@@ -1,8 +1,11 @@
 'use client'
 
 import { CircleDollarSign, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { BulkDeleteBar, BulkSelectCheckbox } from '@/components/BulkDeleteBar'
 import { PaidInvoiceFormModal } from '@/components/PaidInvoiceFormModal'
+import { useBulkDeleteConfirm } from '@/hooks/useBulkDeleteConfirm'
+import { useBulkSelection } from '@/hooks/useBulkSelection'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
@@ -11,7 +14,7 @@ import {
   parsePaidInvoicesExcel,
 } from '@/lib/paidInvoiceExcel'
 import type { CreatePaidInvoiceInput, PaidInvoice } from '@/types'
-import { formatCurrency, formatDate } from '@/utils/format'
+import { formatCurrency, formatDate, resolveInvoiceNumber } from '@/utils/format'
 
 interface PaidInvoicesProps {
   invoices: PaidInvoice[]
@@ -21,6 +24,7 @@ interface PaidInvoicesProps {
   onCreate: (input: CreatePaidInvoiceInput) => Promise<void>
   onUpdate: (id: string, input: CreatePaidInvoiceInput) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  onDeleteMany: (ids: string[]) => Promise<void>
   onImport: (inputs: CreatePaidInvoiceInput[]) => Promise<void>
 }
 
@@ -47,7 +51,7 @@ function cellValue(invoice: PaidInvoice, column: (typeof columns)[number], index
     case 'Company Name':
       return invoice.companyName || '—'
     case 'Invoice Number':
-      return invoice.invoiceNumber || '—'
+      return resolveInvoiceNumber(invoice as unknown as Record<string, unknown>) || '—'
     case 'Invoice Amount':
       return formatCurrency(invoice.invoiceAmount)
     case 'Status':
@@ -68,16 +72,28 @@ export function PaidInvoices({
   onCreate,
   onUpdate,
   onDelete,
+  onDeleteMany,
   onImport,
 }: PaidInvoicesProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<PaidInvoice | null>(null)
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const itemIds = useMemo(() => invoices.map((invoice) => invoice.id), [invoices])
+  const bulk = useBulkSelection(itemIds)
   const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
     onConfirm: onDelete,
     successMessage: 'Paid invoice deleted',
     errorMessage: 'Failed to delete paid invoice',
+  })
+  const { openBulkDeleteConfirm, bulkDeleteModal } = useBulkDeleteConfirm({
+    onConfirm: async (ids) => {
+      await onDeleteMany(ids)
+      bulk.clear()
+    },
+    itemLabel: 'invoices',
+    successMessage: 'Selected invoices deleted',
+    errorMessage: 'Failed to delete selected invoices',
   })
 
   const handleImportClick = () => {
@@ -108,7 +124,16 @@ export function PaidInvoices({
   }
 
   const actionToolbar = (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <BulkDeleteBar
+        selectedCount={bulk.selectedCount}
+        totalCount={invoices.length}
+        allSelected={bulk.allSelected}
+        onToggleAll={bulk.toggleAll}
+        onDeleteSelected={() => openBulkDeleteConfirm(bulk.selectedList)}
+        itemLabel="invoices"
+      />
+      <div className="flex flex-wrap items-center justify-end gap-2">
       <button
         type="button"
         onClick={handleImportClick}
@@ -133,6 +158,7 @@ export function PaidInvoices({
         <Plus size={16} />
         Add Paid Invoice
       </button>
+      </div>
     </div>
   )
 
@@ -155,6 +181,13 @@ export function PaidInvoices({
       <table className="wyra-data-table w-full min-w-[1100px] text-left text-sm">
         <thead className="bg-theme-elevated text-xs uppercase tracking-wider text-theme-muted">
           <tr>
+            <th className="w-10 whitespace-nowrap px-4 py-3 font-semibold">
+              <BulkSelectCheckbox
+                checked={bulk.allSelected}
+                onChange={bulk.toggleAll}
+                ariaLabel="Select all invoices"
+              />
+            </th>
             {columns.map((col) => (
               <th key={col} className="whitespace-nowrap px-4 py-3 font-semibold">
                 {col}
@@ -166,6 +199,13 @@ export function PaidInvoices({
         <tbody>
           {invoices.map((invoice, index) => (
             <tr key={invoice.id} className="transition hover:bg-theme-hover">
+              <td className="whitespace-nowrap px-4 py-3">
+                <BulkSelectCheckbox
+                  checked={bulk.isSelected(invoice.id)}
+                  onChange={() => bulk.toggle(invoice.id)}
+                  ariaLabel={`Select ${invoice.companyName || 'invoice'}`}
+                />
+              </td>
               {columns.map((col) => (
                 <td key={col} className="whitespace-nowrap px-4 py-3 text-theme-body">
                   {cellValue(invoice, col, index)}
@@ -186,7 +226,9 @@ export function PaidInvoices({
                     onClick={() =>
                       openDeleteConfirm(
                         invoice.id,
-                        invoice.invoiceNumber || invoice.companyName || 'this invoice',
+                        resolveInvoiceNumber(invoice as unknown as Record<string, unknown>) ||
+                        invoice.companyName ||
+                        'this invoice',
                         { title: 'Delete paid invoice?' },
                       )
                     }
@@ -242,6 +284,7 @@ export function PaidInvoices({
       />
 
       {deleteModal}
+      {bulkDeleteModal}
     </div>
   )
 }

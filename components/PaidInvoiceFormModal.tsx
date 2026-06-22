@@ -5,6 +5,7 @@ import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { notify } from '@/lib/toast'
 import type { CreatePaidInvoiceInput, PaidInvoice } from '@/types'
+import { resolveInvoiceNumber } from '@/utils/format'
 
 interface PaidInvoiceFormModalProps {
   open: boolean
@@ -45,7 +46,7 @@ export function PaidInvoiceFormModal({
         invoiceDate: initial.invoiceDate,
         customerName: initial.customerName,
         companyName: initial.companyName,
-        invoiceNumber: initial.invoiceNumber,
+        invoiceNumber: resolveInvoiceNumber(initial as unknown as Record<string, unknown>),
         invoiceAmount: initial.invoiceAmount,
         status: initial.status,
         paymentDate: initial.paymentDate,

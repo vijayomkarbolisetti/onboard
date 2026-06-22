@@ -1,5 +1,5 @@
 import { format, parseISO } from 'date-fns'
-import type { InvoiceStatus, OnboardingStatus } from '@/types'
+import type { InvoiceStatus, OnboardingStatus, OpenInvoice, PaidInvoice } from '@/types'
 
 export function formatDate(value: string) {
   if (!value) return '—'
@@ -56,4 +56,34 @@ export function onboardingStatusLabel(status: string) {
 
 export function invoiceStatusLabel(status: InvoiceStatus) {
   return status.charAt(0).toUpperCase() + status.slice(1)
+}
+
+export function resolveInvoiceNumber(record: Record<string, unknown>) {
+  const candidates = [
+    record.invoiceNumber,
+    record.invoiceNo,
+    record['Invoice Number'],
+    record['Invoive Number'],
+    record.invoiveNumber,
+    record.invoice_number,
+    record.invoice_no,
+  ]
+
+  for (const value of candidates) {
+    if (value === null || value === undefined) continue
+    const text = String(value).trim()
+    if (text) return text
+  }
+
+  return ''
+}
+
+export function normalizePaidInvoice(record: PaidInvoice): PaidInvoice {
+  const invoiceNumber = resolveInvoiceNumber(record as unknown as Record<string, unknown>)
+  return invoiceNumber ? { ...record, invoiceNumber } : record
+}
+
+export function normalizeOpenInvoice(record: OpenInvoice): OpenInvoice {
+  const invoiceNumber = resolveInvoiceNumber(record as unknown as Record<string, unknown>)
+  return invoiceNumber ? { ...record, invoiceNumber } : record
 }

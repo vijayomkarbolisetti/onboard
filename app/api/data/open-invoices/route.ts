@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createOrgFirestoreStore } from '@/lib/orgFirestore'
 import { isTeamAuthContext, requireTeamAuth } from '@/lib/team-auth'
 import type { CreateOpenInvoiceInput, OpenInvoice } from '@/types'
+import { normalizeOpenInvoice } from '@/utils/format'
 
 const store = createOrgFirestoreStore<OpenInvoice>('open_invoices')
 
@@ -12,7 +13,7 @@ export async function GET() {
   }
 
   try {
-    const records = await store.list(authResult.orgId)
+    const records = (await store.list(authResult.orgId)).map(normalizeOpenInvoice)
     return NextResponse.json({ records })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load open invoices'
