@@ -26,9 +26,6 @@ import type {
 const ONBOARDINGS_KEY = 'wyra_onboardings'
 const INVOICES_KEY = 'wyra_invoices'
 const ONBOARDING_INVOICES_KEY = 'wyra_onboarding_invoices'
-const PAID_INVOICES_KEY = 'wyra_paid_invoices'
-const OPEN_INVOICES_KEY = 'wyra_open_invoices'
-const EXPENSES_KEY = 'wyra_expenses'
 const REQUEST_TIMEOUT_MS = 12_000
 
 function readLocal<T>(key: string): T[] {
@@ -71,126 +68,90 @@ async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
   ])
 }
 
-export async function fetchOnboardings(): Promise<Onboarding[]> {
-  const firestore = getDb()
-  if (isFirebaseConfigured && firestore) {
-    const snapshot = await withTimeout(
-      getDocs(collection(firestore, 'onboardings')),
-      'Loading onboardings',
-    )
-    return sortByCreatedAt(
-      snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      })) as Onboarding[],
-    )
+async function readOrgApiRecords<T>(path: string, label: string): Promise<T[]> {
+  const response = await fetch(path)
+  const payload = (await response.json()) as { records?: T[]; error?: string }
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? `Failed to load ${label}`)
   }
 
-  return sortByCreatedAt(readLocal<Onboarding>(ONBOARDINGS_KEY))
+  return payload.records ?? []
+}
+
+async function writeOrgApiRecord<T>(
+  path: string,
+  body: unknown,
+  label: string,
+  recordKey: 'record' | 'records' = 'record',
+): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const payload = (await response.json()) as Record<string, T | undefined> & { error?: string }
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? `Failed to save ${label}`)
+  }
+
+  const record = payload[recordKey]
+  if (!record) {
+    throw new Error(`Failed to save ${label}`)
+  }
+
+  return record
+}
+
+async function patchOrgApiRecord(path: string, body: unknown, label: string): Promise<void> {
+  const response = await fetch(path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const payload = (await response.json()) as { error?: string }
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? `Failed to update ${label}`)
+  }
+}
+
+async function deleteOrgApiRecord(path: string, label: string): Promise<void> {
+  const response = await fetch(path, { method: 'DELETE' })
+  const payload = (await response.json()) as { error?: string }
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? `Failed to delete ${label}`)
+  }
+}
+
+export async function fetchOnboardings(): Promise<Onboarding[]> {
+  return readOrgApiRecords<Onboarding>('/api/data/onboardings', 'onboardings')
 }
 
 export async function createOnboarding(
   input: CreateOnboardingInput,
 ): Promise<Onboarding> {
-  const record: Omit<Onboarding, 'id'> = {
-    ...input,
-    createdAt: new Date().toISOString(),
-  }
-
-  const firestore = getDb()
-  if (isFirebaseConfigured && firestore) {
-    const ref = await withTimeout(
-      addDoc(collection(firestore, 'onboardings'), record),
-      'Creating onboarding',
-    )
-    return { id: ref.id, ...record }
-  }
-
-  const onboarding: Onboarding = { id: generateId(), ...record }
-  const existing = readLocal<Onboarding>(ONBOARDINGS_KEY)
-  writeLocal(ONBOARDINGS_KEY, [onboarding, ...existing])
-  return onboarding
+  return writeOrgApiRecord<Onboarding>('/api/data/onboardings', input, 'onboarding')
 }
 
 export async function updateOnboarding(
   id: string,
   input: CreateOnboardingInput,
 ): Promise<void> {
-  const firestore = getDb()
-  if (isFirebaseConfigured && firestore) {
-    await withTimeout(
-      updateDoc(doc(firestore, 'onboardings', id), {
-        organization: input.organization,
-        onboardingDate: input.onboardingDate,
-        endDate: input.endDate,
-        campaignLaunchDate: input.campaignLaunchDate,
-        targetedLeads: input.targetedLeads,
-        interestedLeads: input.interestedLeads,
-        totalReplies: input.totalReplies,
-        status: input.status,
-        remark: input.remark,
-      }),
-      'Updating onboarding',
-    )
-    return
-  }
-
-  const existing = readLocal<Onboarding>(ONBOARDINGS_KEY)
-  writeLocal(
-    ONBOARDINGS_KEY,
-    existing.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            organization: input.organization,
-            onboardingDate: input.onboardingDate,
-            endDate: input.endDate,
-            campaignLaunchDate: input.campaignLaunchDate,
-            targetedLeads: input.targetedLeads,
-            interestedLeads: input.interestedLeads,
-            totalReplies: input.totalReplies,
-            status: input.status,
-            remark: input.remark,
-          }
-        : item,
-    ),
-  )
+  await patchOrgApiRecord(`/api/data/onboardings/${id}`, input, 'onboarding')
 }
 
 export async function updateOnboardingStatus(
   id: string,
   status: Onboarding['status'],
 ): Promise<void> {
-  const firestore = getDb()
-  if (isFirebaseConfigured && firestore) {
-    await withTimeout(
-      updateDoc(doc(firestore, 'onboardings', id), { status }),
-      'Updating onboarding',
-    )
-    return
-  }
-
-  const existing = readLocal<Onboarding>(ONBOARDINGS_KEY)
-  writeLocal(
-    ONBOARDINGS_KEY,
-    existing.map((item) => (item.id === id ? { ...item, status } : item)),
-  )
+  await patchOrgApiRecord(`/api/data/onboardings/${id}`, { status }, 'onboarding')
 }
 
 export async function deleteOnboarding(id: string): Promise<void> {
-  const firestore = getDb()
-  if (isFirebaseConfigured && firestore) {
-    await withTimeout(
-      deleteDoc(doc(firestore, 'onboardings', id)),
-      'Deleting onboarding',
-    )
-    return
-  }
-
-  writeLocal(
-    ONBOARDINGS_KEY,
-    readLocal<Onboarding>(ONBOARDINGS_KEY).filter((item) => item.id !== id),
-  )
+  await deleteOrgApiRecord(`/api/data/onboardings/${id}`, 'onboarding')
 }
 
 export async function fetchInvoices(): Promise<Invoice[]> {
@@ -257,264 +218,131 @@ export function getStorageMode(): 'firebase' | 'local' {
 }
 
 export async function fetchOnboardingInvoices(): Promise<OnboardingInvoiceRecord[]> {
-  const firestore = getDb()
-  if (isFirebaseConfigured && firestore) {
-    const snapshot = await withTimeout(
-      getDocs(collection(firestore, 'onboarding_invoices')),
-      'Loading onboarding & invoices',
-    )
-    return sortByCreatedAt(
-      snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      })) as OnboardingInvoiceRecord[],
-    )
-  }
-
-  return sortByCreatedAt(readLocal<OnboardingInvoiceRecord>(ONBOARDING_INVOICES_KEY))
+  return readOrgApiRecords<OnboardingInvoiceRecord>(
+    '/api/data/onboarding-invoices',
+    'onboarding invoices',
+  )
 }
 
 export async function createOnboardingInvoice(
   input: CreateOnboardingInvoiceInput,
 ): Promise<OnboardingInvoiceRecord> {
-  const record: Omit<OnboardingInvoiceRecord, 'id'> = {
-    ...input,
-    createdAt: new Date().toISOString(),
-  }
-
-  const firestore = getDb()
-  if (isFirebaseConfigured && firestore) {
-    const ref = await withTimeout(
-      addDoc(collection(firestore, 'onboarding_invoices'), record),
-      'Creating record',
-    )
-    return { id: ref.id, ...record }
-  }
-
-  const item: OnboardingInvoiceRecord = { id: generateId(), ...record }
-  const existing = readLocal<OnboardingInvoiceRecord>(ONBOARDING_INVOICES_KEY)
-  writeLocal(ONBOARDING_INVOICES_KEY, [item, ...existing])
-  return item
+  return writeOrgApiRecord<OnboardingInvoiceRecord>(
+    '/api/data/onboarding-invoices',
+    input,
+    'onboarding invoice',
+  )
 }
 
 export async function updateOnboardingInvoice(
   id: string,
   input: CreateOnboardingInvoiceInput,
 ): Promise<void> {
-  const firestore = getDb()
-  if (isFirebaseConfigured && firestore) {
-    await withTimeout(
-      updateDoc(
-        doc(firestore, 'onboarding_invoices', id),
-        input as unknown as Record<string, unknown>,
-      ),
-      'Updating record',
-    )
-    return
-  }
-
-  const existing = readLocal<OnboardingInvoiceRecord>(ONBOARDING_INVOICES_KEY)
-  writeLocal(
-    ONBOARDING_INVOICES_KEY,
-    existing.map((item) => (item.id === id ? { ...item, ...input } : item)),
-  )
+  await patchOrgApiRecord(`/api/data/onboarding-invoices/${id}`, input, 'onboarding invoice')
 }
 
 export async function deleteOnboardingInvoice(id: string): Promise<void> {
-  const firestore = getDb()
-  if (isFirebaseConfigured && firestore) {
-    await withTimeout(
-      deleteDoc(doc(firestore, 'onboarding_invoices', id)),
-      'Deleting record',
-    )
-    return
-  }
-
-  writeLocal(
-    ONBOARDING_INVOICES_KEY,
-    readLocal<OnboardingInvoiceRecord>(ONBOARDING_INVOICES_KEY).filter(
-      (item) => item.id !== id,
-    ),
-  )
+  await deleteOrgApiRecord(`/api/data/onboarding-invoices/${id}`, 'onboarding invoice')
 }
 
 export async function createOnboardingInvoicesBulk(
   inputs: CreateOnboardingInvoiceInput[],
 ): Promise<OnboardingInvoiceRecord[]> {
-  if (inputs.length === 0) return []
-
-  const createdAt = new Date().toISOString()
-  const firestore = getDb()
-
-  if (isFirebaseConfigured && firestore) {
-    const batch = writeBatch(firestore)
-    const created: OnboardingInvoiceRecord[] = []
-
-    inputs.forEach((input) => {
-      const ref = doc(collection(firestore, 'onboarding_invoices'))
-      const record: OnboardingInvoiceRecord = {
-        id: ref.id,
-        ...input,
-        createdAt,
-      }
-      batch.set(ref, {
-        companyName: record.companyName,
-        saasMspAgreement: record.saasMspAgreement,
-        sponsor: record.sponsor,
-        partnerProgram: record.partnerProgram,
-        pointOfContact: record.pointOfContact,
-        personEmailId: record.personEmailId,
-        onBoardDate: record.onBoardDate,
-        invoiceAmount: record.invoiceAmount,
-        firstInvoiceDate: record.firstInvoiceDate,
-        invoiceCycle: record.invoiceCycle,
-        invoicesGenerated: record.invoicesGenerated,
-        invoicesPaid: record.invoicesPaid,
-        nextInvoiceStatus: record.nextInvoiceStatus,
-        createdAt: record.createdAt,
-      })
-      created.push(record)
-    })
-
-    await withTimeout(batch.commit(), 'Importing records')
-    return created
+  if (inputs.length === 0) {
+    return []
   }
 
-  const items: OnboardingInvoiceRecord[] = inputs.map((input) => ({
-    id: generateId(),
-    ...input,
-    createdAt,
-  }))
-  const existing = readLocal<OnboardingInvoiceRecord>(ONBOARDING_INVOICES_KEY)
-  writeLocal(ONBOARDING_INVOICES_KEY, [...items, ...existing])
-  return items
-}
-
-function crudCollection<T extends { id: string; createdAt: string }>(
-  collectionName: string,
-  localKey: string,
-) {
-  return {
-    async fetch(): Promise<T[]> {
-      const firestore = getDb()
-      if (isFirebaseConfigured && firestore) {
-        const snapshot = await withTimeout(
-          getDocs(collection(firestore, collectionName)),
-          `Loading ${collectionName}`,
-        )
-        return sortByCreatedAt(
-          snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...docSnap.data(),
-          })) as T[],
-        )
-      }
-      return sortByCreatedAt(readLocal<T>(localKey))
-    },
-
-    async create(input: Omit<T, 'id' | 'createdAt'>): Promise<T> {
-      const record = { ...input, createdAt: new Date().toISOString() } as Omit<T, 'id'>
-      const firestore = getDb()
-      if (isFirebaseConfigured && firestore) {
-        const ref = await withTimeout(
-          addDoc(collection(firestore, collectionName), record),
-          `Creating ${collectionName}`,
-        )
-        return { id: ref.id, ...record } as T
-      }
-      const item = { id: generateId(), ...record } as T
-      writeLocal(localKey, [item, ...readLocal<T>(localKey)])
-      return item
-    },
-
-    async update(id: string, input: Omit<T, 'id' | 'createdAt'>): Promise<void> {
-      const firestore = getDb()
-      if (isFirebaseConfigured && firestore) {
-        await withTimeout(
-          updateDoc(doc(firestore, collectionName, id), input as Record<string, unknown>),
-          `Updating ${collectionName}`,
-        )
-        return
-      }
-      writeLocal(
-        localKey,
-        readLocal<T>(localKey).map((item) =>
-          item.id === id ? ({ ...item, ...input } as T) : item,
-        ),
-      )
-    },
-
-    async remove(id: string): Promise<void> {
-      const firestore = getDb()
-      if (isFirebaseConfigured && firestore) {
-        await withTimeout(
-          deleteDoc(doc(firestore, collectionName, id)),
-          `Deleting ${collectionName}`,
-        )
-        return
-      }
-      writeLocal(
-        localKey,
-        readLocal<T>(localKey).filter((item) => item.id !== id),
-      )
-    },
-
-    async createMany(inputs: Omit<T, 'id' | 'createdAt'>[]): Promise<T[]> {
-      if (inputs.length === 0) return []
-
-      const createdAt = new Date().toISOString()
-      const firestore = getDb()
-
-      if (isFirebaseConfigured && firestore) {
-        const batch = writeBatch(firestore)
-        const created: T[] = []
-
-        inputs.forEach((input) => {
-          const ref = doc(collection(firestore, collectionName))
-          const record = { id: ref.id, ...input, createdAt } as T
-          batch.set(ref, { ...input, createdAt })
-          created.push(record)
-        })
-
-        await withTimeout(batch.commit(), `Importing ${collectionName}`)
-        return created
-      }
-
-      const items = inputs.map(
-        (input) => ({ id: generateId(), ...input, createdAt }) as T,
-      )
-      writeLocal(localKey, [...items, ...readLocal<T>(localKey)])
-      return items
-    },
+  const response = await fetch('/api/data/onboarding-invoices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ records: inputs }),
+  })
+  const payload = (await response.json()) as {
+    records?: OnboardingInvoiceRecord[]
+    error?: string
   }
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? 'Failed to import onboarding invoices')
+  }
+
+  return payload.records ?? []
 }
 
-const paidInvoicesDb = crudCollection<PaidInvoice>('paid_invoices', PAID_INVOICES_KEY)
-const openInvoicesDb = crudCollection<OpenInvoice>('open_invoices', OPEN_INVOICES_KEY)
-const expensesDb = crudCollection<Expense>('expenses', EXPENSES_KEY)
-
-export const fetchPaidInvoices = () => paidInvoicesDb.fetch()
+export const fetchPaidInvoices = () => readOrgApiRecords<PaidInvoice>('/api/data/paid-invoices', 'paid invoices')
 export const createPaidInvoice = (input: CreatePaidInvoiceInput) =>
-  paidInvoicesDb.create(input)
+  writeOrgApiRecord<PaidInvoice>('/api/data/paid-invoices', input, 'paid invoice')
 export const updatePaidInvoice = (id: string, input: CreatePaidInvoiceInput) =>
-  paidInvoicesDb.update(id, input)
-export const deletePaidInvoice = (id: string) => paidInvoicesDb.remove(id)
-export const createPaidInvoicesBulk = (inputs: CreatePaidInvoiceInput[]) =>
-  paidInvoicesDb.createMany(inputs)
+  patchOrgApiRecord(`/api/data/paid-invoices/${id}`, input, 'paid invoice')
+export const deletePaidInvoice = (id: string) =>
+  deleteOrgApiRecord(`/api/data/paid-invoices/${id}`, 'paid invoice')
+export const createPaidInvoicesBulk = async (inputs: CreatePaidInvoiceInput[]) => {
+  if (inputs.length === 0) {
+    return []
+  }
 
-export const fetchOpenInvoices = () => openInvoicesDb.fetch()
+  const response = await fetch('/api/data/paid-invoices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ records: inputs }),
+  })
+  const payload = (await response.json()) as { records?: PaidInvoice[]; error?: string }
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? 'Failed to import paid invoices')
+  }
+
+  return payload.records ?? []
+}
+
+export const fetchOpenInvoices = () => readOrgApiRecords<OpenInvoice>('/api/data/open-invoices', 'open invoices')
 export const createOpenInvoice = (input: CreateOpenInvoiceInput) =>
-  openInvoicesDb.create(input)
+  writeOrgApiRecord<OpenInvoice>('/api/data/open-invoices', input, 'open invoice')
 export const updateOpenInvoice = (id: string, input: CreateOpenInvoiceInput) =>
-  openInvoicesDb.update(id, input)
-export const deleteOpenInvoice = (id: string) => openInvoicesDb.remove(id)
-export const createOpenInvoicesBulk = (inputs: CreateOpenInvoiceInput[]) =>
-  openInvoicesDb.createMany(inputs)
+  patchOrgApiRecord(`/api/data/open-invoices/${id}`, input, 'open invoice')
+export const deleteOpenInvoice = (id: string) =>
+  deleteOrgApiRecord(`/api/data/open-invoices/${id}`, 'open invoice')
+export const createOpenInvoicesBulk = async (inputs: CreateOpenInvoiceInput[]) => {
+  if (inputs.length === 0) {
+    return []
+  }
 
-export const fetchExpenses = () => expensesDb.fetch()
-export const createExpense = (input: CreateExpenseInput) => expensesDb.create(input)
+  const response = await fetch('/api/data/open-invoices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ records: inputs }),
+  })
+  const payload = (await response.json()) as { records?: OpenInvoice[]; error?: string }
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? 'Failed to import open invoices')
+  }
+
+  return payload.records ?? []
+}
+
+export const fetchExpenses = () => readOrgApiRecords<Expense>('/api/data/expenses', 'expenses')
+export const createExpense = (input: CreateExpenseInput) =>
+  writeOrgApiRecord<Expense>('/api/data/expenses', input, 'expense')
 export const updateExpense = (id: string, input: CreateExpenseInput) =>
-  expensesDb.update(id, input)
-export const deleteExpense = (id: string) => expensesDb.remove(id)
-export const createExpensesBulk = (inputs: CreateExpenseInput[]) =>
-  expensesDb.createMany(inputs)
+  patchOrgApiRecord(`/api/data/expenses/${id}`, input, 'expense')
+export const deleteExpense = (id: string) =>
+  deleteOrgApiRecord(`/api/data/expenses/${id}`, 'expense')
+export const createExpensesBulk = async (inputs: CreateExpenseInput[]) => {
+  if (inputs.length === 0) {
+    return []
+  }
+
+  const response = await fetch('/api/data/expenses', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ records: inputs }),
+  })
+  const payload = (await response.json()) as { records?: Expense[]; error?: string }
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? 'Failed to import expenses')
+  }
+
+  return payload.records ?? []
+}

@@ -3,6 +3,7 @@
 import { Download, Pencil, Plus, Trash2, Upload, Wallet } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
+import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import { exportExpensesExcel, parseExpensesExcel } from '@/lib/expenseExcel'
 import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
@@ -65,6 +66,11 @@ export function Expenses({
   const [editing, setEditing] = useState<Expense | null>(null)
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
+    onConfirm: onDelete,
+    successMessage: 'Expense deleted',
+    errorMessage: 'Failed to delete expense',
+  })
 
   const handleImportClick = () => {
     fileInputRef.current?.click()
@@ -169,7 +175,11 @@ export function Expenses({
                   </button>
                   <button
                     type="button"
-                    onClick={() => void onDelete(expense.id)}
+                    onClick={() =>
+                      openDeleteConfirm(expense.id, expense.toolName || 'this expense', {
+                        title: 'Delete expense?',
+                      })
+                    }
                     className="rounded-lg p-2 text-theme-muted hover:bg-red-500/10 hover:text-red-400"
                     title="Delete"
                   >
@@ -218,6 +228,8 @@ export function Expenses({
           await onUpdate(editing.id, input)
         }}
       />
+
+      {deleteModal}
     </div>
   )
 }

@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import { notify } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
@@ -58,7 +59,6 @@ export function TeamInvitePanel() {
   const [loadingTeam, setLoadingTeam] = useState(false)
   const [members, setMembers] = useState<TeamMember[]>([])
   const [invitations, setInvitations] = useState<TeamInvitation[]>([])
-  const [removingUserId, setRemovingUserId] = useState<string | null>(null)
 
   const isAdmin = membership?.role === 'org:admin'
 
@@ -180,8 +180,24 @@ export function TeamInvitePanel() {
     }
   }
 
-  const handleRevokeInvite = async (invitationId: string) => {
-    try {
+  const removeMemberFromOrg = useCallback(
+    async (userId: string) => {
+      const response = await fetch(`/api/team/members/${userId}`, {
+        method: 'DELETE',
+      })
+      const payload = await response.json()
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? 'Failed to remove team member')
+      }
+
+      await loadTeamData()
+    },
+    [loadTeamData],
+  )
+
+  const revokeInvitation = useCallback(
+    async (invitationId: string) => {
       const response = await fetch(`/api/team/invitations/${invitationId}`, {
         method: 'DELETE',
       })
@@ -191,51 +207,27 @@ export function TeamInvitePanel() {
         throw new Error(payload.error ?? 'Failed to revoke invitation')
       }
 
-      notify.success('Invitation revoked')
       await loadTeamData()
-    } catch (err) {
-      notify.error(err instanceof Error ? err.message : 'Failed to revoke invitation')
-    }
-  }
+    },
+    [loadTeamData],
+  )
 
-  const handleRemoveMember = async (member: TeamMember) => {
-    if (!member.userId) {
-      notify.error('Cannot remove this member')
-      return
-    }
+  const {
+    openDeleteConfirm: openRemoveMemberConfirm,
+    deleteModal: removeMemberModal,
+    isDeleting: removingMember,
+  } = useDeleteConfirm({
+    onConfirm: removeMemberFromOrg,
+    successMessage: 'Team member removed',
+    errorMessage: 'Failed to remove team member',
+  })
 
-    if (member.userId === user?.id) {
-      notify.error('You cannot remove yourself from the organization')
-      return
-    }
-
-    const confirmed = window.confirm(
-      `Remove ${memberLabel(member)} from ${displayOrgName}?`,
-    )
-    if (!confirmed) {
-      return
-    }
-
-    setRemovingUserId(member.userId)
-
-    try {
-      const response = await fetch(`/api/team/members/${member.userId}`, {
-        method: 'DELETE',
-      })
-      const payload = await response.json()
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? 'Failed to remove team member')
-      }
-
-      notify.success('Team member removed')
-      await loadTeamData()
-    } catch (err) {
-      notify.error(err instanceof Error ? err.message : 'Failed to remove team member')
-    } finally {
-      setRemovingUserId(null)
-    }
-  }
+  const { openDeleteConfirm: openRevokeInviteConfirm, deleteModal: revokeInviteModal } =
+    useDeleteConfirm({
+      onConfirm: revokeInvitation,
+      successMessage: 'Invitation revoked',
+      errorMessage: 'Failed to revoke invitation',
+    })
 
   if (!orgLoaded) {
     return (
@@ -416,12 +408,22 @@ export function TeamInvitePanel() {
                       {isAdmin && member.userId && member.userId !== user?.id && (
                         <button
                           type="button"
-                          onClick={() => void handleRemoveMember(member)}
-                          disabled={removingUserId === member.userId}
+                          onClick={() => {
+                            if (!member.userId) {
+                              notify.error('Cannot remove this member')
+                              return
+                            }
+                            openRemoveMemberConfirm(member.userId, memberLabel(member), {
+                              title: 'Remove team member?',
+                              description: `Remove ${memberLabel(member)} from ${displayOrgName}? They will lose access immediately.`,
+                              confirmLabel: 'Remove',
+                            })
+                          }}
+                          disabled={removingMember}
                           className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
                           title="Remove member"
                         >
-                          {removingUserId === member.userId ? (
+                          {removingMember ? (
                             <Loader2 size={14} className="animate-spin" />
                           ) : (
                             <Trash2 size={14} />
@@ -472,7 +474,13 @@ export function TeamInvitePanel() {
                     {isAdmin && (
                       <button
                         type="button"
-                        onClick={() => void handleRevokeInvite(invitation.id)}
+                        onClick={() =>
+                          openRevokeInviteConfirm(invitation.id, invitation.emailAddress, {
+                            title: 'Revoke invitation?',
+                            description: `Revoke the invitation sent to ${invitation.emailAddress}?`,
+                            confirmLabel: 'Revoke',
+                          })
+                        }
                         className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-400 transition hover:bg-red-500/10"
                         title="Revoke invitation"
                       >
@@ -487,6 +495,9 @@ export function TeamInvitePanel() {
           </div>
         </div>
       </div>
+
+      {removeMemberModal}
+      {revokeInviteModal}
     </div>
   )
 }

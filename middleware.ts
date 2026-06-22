@@ -7,8 +7,21 @@ const isPublicRoute = createRouteMatcher([
 ])
 
 export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect()
+  if (isPublicRoute(request)) {
+    return
+  }
+
+  const authObject = await auth()
+  const { userId } = authObject
+
+  if (!userId) {
+    const accept = request.headers.get('accept') ?? ''
+    // During sign-out, Clerk/Next may issue RSC POSTs before redirect completes.
+    if (accept.includes('text/x-component')) {
+      return
+    }
+
+    return authObject.redirectToSignIn({ returnBackUrl: request.url })
   }
 })
 
