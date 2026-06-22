@@ -1,17 +1,19 @@
 'use client'
 
-import { Download, FileText, Pencil, Plus, Trash2, Upload } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { Download, FileSpreadsheet, FileText, Pencil, Plus, Trash2, Upload } from 'lucide-react'
+import { useRef, useState, type ReactNode } from 'react'
 import { OpenInvoiceFormModal } from '@/components/OpenInvoiceFormModal'
+import { RowDetailsModal, type DetailField } from '@/components/RowDetailsModal'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
 import {
   exportOpenInvoicesExcel,
+  downloadOpenInvoiceTemplate,
   parseOpenInvoicesExcel,
 } from '@/lib/openInvoiceExcel'
 import type { CreateOpenInvoiceInput, OpenInvoice } from '@/types'
-import { formatCurrency, formatDate, resolveInvoiceNumber } from '@/utils/format'
+import { formatCurrency, formatDate, formatCompanyNames, resolveInvoiceNumber } from '@/utils/format'
 
 interface OpenInvoicesProps {
   invoices: OpenInvoice[]
@@ -35,7 +37,21 @@ const columns = [
   'Notes',
 ] as const
 
-function cellValue(invoice: OpenInvoice, column: (typeof columns)[number], index: number) {
+function companyNameCell(value: string | undefined): ReactNode {
+  const text = formatCompanyNames(value)
+  if (!text) return '—'
+  return (
+    <span className="block max-w-[220px] truncate" title={text}>
+      {text}
+    </span>
+  )
+}
+
+function cellValue(
+  invoice: OpenInvoice,
+  column: (typeof columns)[number],
+  index: number,
+): ReactNode {
   switch (column) {
     case 'S.No':
       return index + 1
@@ -44,7 +60,7 @@ function cellValue(invoice: OpenInvoice, column: (typeof columns)[number], index
     case 'Customer Name':
       return invoice.customerName || '—'
     case 'Company Name':
-      return invoice.companyName || '—'
+      return companyNameCell(invoice.companyName)
     case 'Invoice Number':
       return resolveInvoiceNumber(invoice as unknown as Record<string, unknown>) || '—'
     case 'Invoice Amount':
@@ -62,6 +78,21 @@ function cellValue(invoice: OpenInvoice, column: (typeof columns)[number], index
   }
 }
 
+function buildOpenInvoiceDetailFields(invoice: OpenInvoice, index: number): DetailField[] {
+  return columns
+    .filter((col) => col !== 'S.No')
+    .map((col) => ({
+      label: col,
+      value:
+        col === 'Company Name'
+          ? formatCompanyNames(invoice.companyName) || '—'
+          : col === 'Notes'
+            ? invoice.notes || '—'
+            : cellValue(invoice, col, index),
+      fullWidth: col === 'Notes' || col === 'Company Name',
+    }))
+}
+
 export function OpenInvoices({
   invoices,
   loading,
@@ -73,6 +104,8 @@ export function OpenInvoices({
 }: OpenInvoicesProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<OpenInvoice | null>(null)
+  const [viewing, setViewing] = useState<OpenInvoice | null>(null)
+  const [viewingIndex, setViewingIndex] = useState(0)
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
@@ -110,6 +143,15 @@ export function OpenInvoices({
 
   const actionToolbar = (
     <div className="flex flex-wrap items-center justify-end gap-2">
+      <button
+        type="button"
+        onClick={() => downloadOpenInvoiceTemplate()}
+        title="Download sample Excel"
+        aria-label="Download sample Excel"
+        className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover"
+      >
+        <FileSpreadsheet size={18} />
+      </button>
       <button
         type="button"
         onClick={handleImportClick}
@@ -166,13 +208,27 @@ export function OpenInvoices({
         </thead>
         <tbody>
           {invoices.map((invoice, index) => (
-            <tr key={invoice.id} className="transition hover:bg-theme-hover">
+            <tr
+              key={invoice.id}
+              className="cursor-pointer transition hover:bg-theme-hover"
+              onClick={() => {
+                setViewing(invoice)
+                setViewingIndex(index)
+              }}
+            >
               {columns.map((col) => (
-                <td key={col} className="whitespace-nowrap px-4 py-3 text-theme-body">
+                <td
+                  key={col}
+                  className={`px-4 py-3 text-theme-body ${
+                    col === 'Company Name' || col === 'Notes'
+                      ? 'max-w-[220px]'
+                      : 'whitespace-nowrap'
+                  }`}
+                >
                   {cellValue(invoice, col, index)}
                 </td>
               ))}
-              <td className="whitespace-nowrap px-4 py-3">
+              <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
                 <div className="flex gap-1">
                   <button
                     type="button"
@@ -245,6 +301,28 @@ export function OpenInvoices({
       />
 
       {deleteModal}
+
+      <RowDetailsModal
+        open={Boolean(viewing)}
+        title={
+          viewing
+            ? resolveInvoiceNumber(viewing as unknown as Record<string, unknown>) ||
+              viewing.companyName ||
+              'Open invoice'
+            : 'Open invoice'
+        }
+        subtitle="Open Invoices"
+        fields={viewing ? buildOpenInvoiceDetailFields(viewing, viewingIndex) : []}
+        onClose={() => setViewing(null)}
+        onEdit={
+          viewing
+            ? () => {
+                setEditing(viewing)
+                setViewing(null)
+              }
+            : undefined
+        }
+      />
     </div>
   )
 }

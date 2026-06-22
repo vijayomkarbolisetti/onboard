@@ -1,11 +1,13 @@
 'use client'
 
-import { ClipboardList, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { ClipboardList, Download, ExternalLink, FileSpreadsheet, Pencil, Plus, Trash2, Upload } from 'lucide-react'
+import { useRef, useState, type ReactNode } from 'react'
 import { OnboardingInvoiceFormModal } from '@/components/OnboardingInvoiceFormModal'
+import { RowDetailsModal, type DetailField } from '@/components/RowDetailsModal'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import {
   exportOnboardingInvoicesExcel,
+  downloadOnboardingInvoiceTemplate,
   parseOnboardingInvoicesExcel,
 } from '@/lib/onboardingInvoiceExcel'
 import { isExcelFile } from '@/lib/excelUtils'
@@ -24,8 +26,11 @@ interface OnboardingInvoicesProps {
   onImport: (inputs: CreateOnboardingInvoiceInput[]) => Promise<void>
 }
 
-const columns: { key: keyof OnboardingInvoiceRecord | 'actions'; label: string }[] = [
+const columns: { key: keyof OnboardingInvoiceRecord | 'actions' | 'sNo'; label: string }[] = [
+  { key: 'sNo', label: 'S.No' },
   { key: 'companyName', label: 'Company Name' },
+  { key: 'subscriptionSummary', label: 'Subscription Summary' },
+  { key: 'agreementDocumentLink', label: 'Agreement Document Link' },
   { key: 'saasMspAgreement', label: 'Saas / MSP Agreement' },
   { key: 'sponsor', label: 'Sponsor' },
   { key: 'partnerProgram', label: 'Partner Program' },
@@ -43,7 +48,60 @@ const columns: { key: keyof OnboardingInvoiceRecord | 'actions'; label: string }
   { key: 'actions', label: 'Actions' },
 ]
 
-function cellValue(record: OnboardingInvoiceRecord, key: keyof OnboardingInvoiceRecord) {
+function agreementLinkLabel(url: string) {
+  try {
+    const { hostname } = new URL(url)
+    return hostname.replace(/^www\./i, '')
+  } catch {
+    return 'View document'
+  }
+}
+
+function agreementLinkCell(url: string | undefined) {
+  const trimmed = url?.trim()
+  if (!trimmed) return '—'
+
+  const label = agreementLinkLabel(trimmed)
+
+  return (
+    <a
+      href={trimmed}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={trimmed}
+      onClick={(event) => event.stopPropagation()}
+      className="inline-flex max-w-[200px] items-center gap-1.5 truncate rounded-lg border border-aqua/30 bg-aqua/10 px-2.5 py-1 text-xs font-semibold text-aqua transition hover:border-aqua/50 hover:bg-aqua/15"
+    >
+      <ExternalLink size={13} className="shrink-0" />
+      <span className="truncate">{label}</span>
+    </a>
+  )
+}
+
+function agreementLinkDetail(url: string | undefined) {
+  const trimmed = url?.trim()
+  if (!trimmed) return '—'
+
+  return (
+    <a
+      href={trimmed}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-start gap-1.5 break-all text-aqua hover:underline"
+    >
+      <ExternalLink size={14} className="mt-0.5 shrink-0" />
+      <span>{trimmed}</span>
+    </a>
+  )
+}
+
+function cellValue(
+  record: OnboardingInvoiceRecord,
+  key: keyof OnboardingInvoiceRecord | 'sNo',
+  index: number,
+): ReactNode {
+  if (key === 'sNo') return index + 1
+
   const val = record[key]
   if (key === 'onBoardDate' || key === 'firstInvoiceDate') {
     return formatDate(String(val))
@@ -51,7 +109,36 @@ function cellValue(record: OnboardingInvoiceRecord, key: keyof OnboardingInvoice
   if (key === 'invoiceAmount' || key === 'totalAmountPaid' || key === 'pendingAmount') {
     return formatCurrency(Number(val))
   }
+  if (key === 'agreementDocumentLink') {
+    return agreementLinkCell(typeof val === 'string' ? val : undefined)
+  }
+  if (key === 'subscriptionSummary') {
+    const text = String(val ?? '').trim()
+    if (!text) return '—'
+    return (
+      <span className="block max-w-[220px] truncate" title={text}>
+        {text}
+      </span>
+    )
+  }
   return val === 0 ? '0' : String(val || '—')
+}
+
+function buildOnboardingInvoiceDetailFields(
+  record: OnboardingInvoiceRecord,
+  index: number,
+): DetailField[] {
+  return columns
+    .filter((col) => col.key !== 'actions' && col.key !== 'sNo')
+    .map((col) => ({
+      label: col.label,
+      value:
+        col.key === 'agreementDocumentLink'
+          ? agreementLinkDetail(record.agreementDocumentLink)
+          : cellValue(record, col.key, index),
+      fullWidth:
+        col.key === 'subscriptionSummary' || col.key === 'agreementDocumentLink',
+    }))
 }
 
 export function OnboardingInvoices({
@@ -64,6 +151,8 @@ export function OnboardingInvoices({
 }: OnboardingInvoicesProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<OnboardingInvoiceRecord | null>(null)
+  const [viewing, setViewing] = useState<OnboardingInvoiceRecord | null>(null)
+  const [viewingIndex, setViewingIndex] = useState(0)
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
@@ -108,6 +197,15 @@ export function OnboardingInvoices({
     <div className="flex flex-wrap items-center justify-end gap-2">
       <button
         type="button"
+        onClick={() => downloadOnboardingInvoiceTemplate()}
+        title="Download sample Excel"
+        aria-label="Download sample Excel"
+        className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover"
+      >
+        <FileSpreadsheet size={18} />
+      </button>
+      <button
+        type="button"
         onClick={handleImportClick}
         disabled={importing}
         title={importing ? 'Importing...' : 'Import Excel'}
@@ -149,7 +247,7 @@ export function OnboardingInvoices({
     </div>
   ) : (
     <div className="overflow-x-auto">
-      <table className="wyra-data-table w-full min-w-[1400px] text-left text-sm">
+      <table className="wyra-data-table w-full min-w-[1800px] text-left text-sm">
         <thead className="bg-theme-elevated text-xs uppercase tracking-wider text-theme-muted">
           <tr>
             {columns.map((col) => (
@@ -160,12 +258,23 @@ export function OnboardingInvoices({
           </tr>
         </thead>
         <tbody>
-          {records.map((record) => (
-            <tr key={record.id} className="transition hover:bg-theme-hover">
+          {records.map((record, index) => (
+            <tr
+              key={record.id}
+              className="cursor-pointer transition hover:bg-theme-hover"
+              onClick={() => {
+                setViewing(record)
+                setViewingIndex(index)
+              }}
+            >
               {columns.map((col) => {
                 if (col.key === 'actions') {
                   return (
-                    <td key={col.key} className="whitespace-nowrap px-4 py-3">
+                    <td
+                      key={col.key}
+                      className="whitespace-nowrap px-4 py-3"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="flex gap-1">
                         <button
                           type="button"
@@ -195,13 +304,16 @@ export function OnboardingInvoices({
                   <td
                     key={col.key}
                     className={cn(
-                      'whitespace-nowrap px-4 py-3',
+                      'px-4 py-3',
+                      col.key === 'subscriptionSummary' || col.key === 'agreementDocumentLink'
+                        ? 'max-w-[220px]'
+                        : 'whitespace-nowrap',
                       col.key === 'companyName'
                         ? 'font-semibold text-theme-fg'
                         : 'text-theme-body',
                     )}
                   >
-                    {cellValue(record, col.key as keyof OnboardingInvoiceRecord)}
+                    {cellValue(record, col.key, index)}
                   </td>
                 )
               })}
@@ -247,6 +359,22 @@ export function OnboardingInvoices({
       />
 
       {deleteModal}
+
+      <RowDetailsModal
+        open={Boolean(viewing)}
+        title={viewing?.companyName || 'Onboarding record'}
+        subtitle="Onboarding & Invoices"
+        fields={viewing ? buildOnboardingInvoiceDetailFields(viewing, viewingIndex) : []}
+        onClose={() => setViewing(null)}
+        onEdit={
+          viewing
+            ? () => {
+                setEditing(viewing)
+                setViewing(null)
+              }
+            : undefined
+        }
+      />
     </div>
   )
 }

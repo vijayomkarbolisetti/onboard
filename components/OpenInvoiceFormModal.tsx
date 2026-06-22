@@ -5,7 +5,15 @@ import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { notify } from '@/lib/toast'
 import type { CreateOpenInvoiceInput, OpenInvoice } from '@/types'
-import { resolveInvoiceNumber } from '@/utils/format'
+import {
+  formatCompanyNames,
+  numberFieldDisplay,
+  parseCompanyNames,
+  parseDecimalField,
+  resolveInvoiceNumber,
+  toNumber,
+  type NumberFieldValue,
+} from '@/utils/format'
 
 interface OpenInvoiceFormModalProps {
   open: boolean
@@ -16,15 +24,16 @@ interface OpenInvoiceFormModalProps {
   onSubmit: (input: CreateOpenInvoiceInput) => Promise<void>
 }
 
-const emptyForm: CreateOpenInvoiceInput = {
+const emptyForm = {
   invoiceDate: '',
   customerName: '',
-  companyName: '',
   invoiceNumber: '',
-  invoiceAmount: 0,
+  invoiceAmount: '' as NumberFieldValue,
   status: '',
   notes: '',
 }
+
+type OpenInvoiceFormState = typeof emptyForm
 
 export function OpenInvoiceFormModal({
   open,
@@ -34,7 +43,7 @@ export function OpenInvoiceFormModal({
   onClose,
   onSubmit,
 }: OpenInvoiceFormModalProps) {
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState<OpenInvoiceFormState>(emptyForm)
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const isEdit = mode === 'edit'
@@ -45,13 +54,12 @@ export function OpenInvoiceFormModal({
       setForm({
         invoiceDate: initial.invoiceDate,
         customerName: initial.customerName,
-        companyName: initial.companyName,
         invoiceNumber: resolveInvoiceNumber(initial as unknown as Record<string, unknown>),
         invoiceAmount: initial.invoiceAmount,
         status: initial.status,
         notes: initial.notes,
       })
-      setSelectedCompanies([])
+      setSelectedCompanies(parseCompanyNames(initial.companyName))
     } else {
       setForm(emptyForm)
       setSelectedCompanies([])
@@ -67,19 +75,18 @@ export function OpenInvoiceFormModal({
       invoiceDate: form.invoiceDate,
       customerName: form.customerName.trim(),
       invoiceNumber: form.invoiceNumber.trim(),
-      invoiceAmount: form.invoiceAmount,
+      invoiceAmount: toNumber(form.invoiceAmount),
       status: form.status.trim(),
       notes: form.notes.trim(),
     }
 
-    const companies = isEdit
-      ? [form.companyName.trim()].filter(Boolean)
-      : selectedCompanies.map((name) => name.trim()).filter(Boolean)
+    const companies = selectedCompanies.map((name) => name.trim()).filter(Boolean)
+    const companyName = formatCompanyNames(companies)
 
     setSubmitting(true)
     try {
       if (isEdit) {
-        await onSubmit({ ...payload, companyName: form.companyName.trim() })
+        await onSubmit({ ...payload, companyName })
       } else if (companies.length === 0) {
         await onSubmit({ ...payload, companyName: '' })
       } else {
@@ -111,7 +118,7 @@ export function OpenInvoiceFormModal({
     onClose()
   }
 
-  const set = (key: keyof CreateOpenInvoiceInput, value: string | number) => {
+  const set = (key: keyof OpenInvoiceFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -171,20 +178,12 @@ export function OpenInvoiceFormModal({
             </Field>
 
             <Field label="Company Name">
-              {isEdit ? (
-                <CompanyNameSelect
-                  value={form.companyName}
-                  onChange={(value) => set('companyName', value)}
-                  companyNames={companyNames}
-                />
-              ) : (
-                <CompanyNameSelect
-                  multiple
-                  value={selectedCompanies}
-                  onChange={setSelectedCompanies}
-                  companyNames={companyNames}
-                />
-              )}
+              <CompanyNameSelect
+                multiple
+                value={selectedCompanies}
+                onChange={setSelectedCompanies}
+                companyNames={companyNames}
+              />
             </Field>
 
             <Field label="Invoice Amount (USD)">
@@ -193,8 +192,13 @@ export function OpenInvoiceFormModal({
                 min="0"
                 step="0.01"
                 className="wyra-input"
-                value={form.invoiceAmount || ''}
-                onChange={(e) => set('invoiceAmount', Number(e.target.value))}
+                value={numberFieldDisplay(form.invoiceAmount)}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    invoiceAmount: parseDecimalField(e.target.value),
+                  }))
+                }
                 placeholder="0.00"
               />
             </Field>

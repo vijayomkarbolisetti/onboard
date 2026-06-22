@@ -1,5 +1,6 @@
 'use client'
 
+import { WyraSelect } from '@/components/CompanyNameSelect'
 import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { notify } from '@/lib/toast'
@@ -8,6 +9,13 @@ import type {
   OnboardingInvoiceRecord,
   SaasMspAgreement,
 } from '@/types'
+import {
+  numberFieldDisplay,
+  parseDecimalField,
+  parseIntegerField,
+  toNumber,
+  type NumberFieldValue,
+} from '@/utils/format'
 
 interface OnboardingInvoiceFormModalProps {
   open: boolean
@@ -27,15 +35,17 @@ const emptyForm = {
   pointOfContact: '',
   personEmailId: '',
   onBoardDate: '',
-  invoiceAmount: 0,
+  invoiceAmount: '' as NumberFieldValue,
   firstInvoiceDate: '',
   invoiceCycle: '',
-  invoicesGenerated: 0,
-  invoicesPaid: 0,
-  totalAmountPaid: 0,
-  pendingAmount: 0,
+  invoicesGenerated: '' as NumberFieldValue,
+  invoicesPaid: '' as NumberFieldValue,
+  totalAmountPaid: '' as NumberFieldValue,
+  pendingAmount: '' as NumberFieldValue,
   nextInvoiceStatus: '',
 }
+
+type OnboardingInvoiceFormState = typeof emptyForm
 
 const agreementOptions: { value: SaasMspAgreement; label: string }[] = [
   { value: 'SaaS', label: 'SaaS' },
@@ -49,7 +59,7 @@ export function OnboardingInvoiceFormModal({
   onClose,
   onSubmit,
 }: OnboardingInvoiceFormModalProps) {
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState<OnboardingInvoiceFormState>(emptyForm)
   const [submitting, setSubmitting] = useState(false)
   const isEdit = mode === 'edit'
 
@@ -66,13 +76,13 @@ export function OnboardingInvoiceFormModal({
         pointOfContact: initial.pointOfContact,
         personEmailId: initial.personEmailId,
         onBoardDate: initial.onBoardDate,
-        invoiceAmount: initial.invoiceAmount,
+        invoiceAmount: initial.invoiceAmount ?? '',
         firstInvoiceDate: initial.firstInvoiceDate,
         invoiceCycle: initial.invoiceCycle,
-        invoicesGenerated: initial.invoicesGenerated ?? 0,
-        invoicesPaid: initial.invoicesPaid ?? 0,
-        totalAmountPaid: initial.totalAmountPaid ?? 0,
-        pendingAmount: initial.pendingAmount ?? 0,
+        invoicesGenerated: initial.invoicesGenerated ?? '',
+        invoicesPaid: initial.invoicesPaid ?? '',
+        totalAmountPaid: initial.totalAmountPaid ?? '',
+        pendingAmount: initial.pendingAmount ?? '',
         nextInvoiceStatus: initial.nextInvoiceStatus ?? '',
       })
     } else {
@@ -88,7 +98,6 @@ export function OnboardingInvoiceFormModal({
     setSubmitting(true)
     try {
       await onSubmit({
-        ...form,
         companyName: form.companyName.trim(),
         subscriptionSummary: form.subscriptionSummary.trim(),
         agreementDocumentLink: form.agreementDocumentLink.trim(),
@@ -97,7 +106,14 @@ export function OnboardingInvoiceFormModal({
         partnerProgram: form.partnerProgram.trim(),
         pointOfContact: form.pointOfContact.trim(),
         personEmailId: form.personEmailId.trim(),
+        onBoardDate: form.onBoardDate,
+        invoiceAmount: toNumber(form.invoiceAmount),
+        firstInvoiceDate: form.firstInvoiceDate,
         invoiceCycle: form.invoiceCycle.trim(),
+        invoicesGenerated: toNumber(form.invoicesGenerated),
+        invoicesPaid: toNumber(form.invoicesPaid),
+        totalAmountPaid: toNumber(form.totalAmountPaid),
+        pendingAmount: toNumber(form.pendingAmount),
         nextInvoiceStatus: form.nextInvoiceStatus.trim(),
       })
       notify.success(isEdit ? 'Record updated' : 'Record added')
@@ -116,8 +132,22 @@ export function OnboardingInvoiceFormModal({
     onClose()
   }
 
-  const set = (key: keyof CreateOnboardingInvoiceInput, value: string | number) => {
+  const set = (key: keyof OnboardingInvoiceFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const setIntegerField = (
+    key: 'invoicesGenerated' | 'invoicesPaid',
+    value: string,
+  ) => {
+    setForm((prev) => ({ ...prev, [key]: parseIntegerField(value) }))
+  }
+
+  const setDecimalField = (
+    key: 'invoiceAmount' | 'totalAmountPaid' | 'pendingAmount',
+    value: string,
+  ) => {
+    setForm((prev) => ({ ...prev, [key]: parseDecimalField(value) }))
   }
 
   return (
@@ -178,20 +208,15 @@ export function OnboardingInvoiceFormModal({
             </Field>
 
             <Field label="Saas / MSP Agreement">
-              <select
-                className="wyra-input"
+              <WyraSelect
                 value={form.saasMspAgreement}
-                onChange={(e) =>
-                  set('saasMspAgreement', e.target.value as SaasMspAgreement | '')
-                }
-              >
-                <option value="">Select SaaS or MSP</option>
-                {agreementOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => set('saasMspAgreement', value)}
+                placeholder="Select SaaS or MSP"
+                options={agreementOptions.map((opt) => ({
+                  value: opt.value,
+                  label: opt.label,
+                }))}
+              />
             </Field>
 
             <Field label="Sponsor">
@@ -246,8 +271,8 @@ export function OnboardingInvoiceFormModal({
                 min="0"
                 step="0.01"
                 className="wyra-input"
-                value={form.invoiceAmount || ''}
-                onChange={(e) => set('invoiceAmount', Number(e.target.value))}
+                value={numberFieldDisplay(form.invoiceAmount)}
+                onChange={(e) => setDecimalField('invoiceAmount', e.target.value)}
                 placeholder="0.00"
               />
             </Field>
@@ -275,8 +300,8 @@ export function OnboardingInvoiceFormModal({
                 type="number"
                 min="0"
                 className="wyra-input"
-                value={form.invoicesGenerated || ''}
-                onChange={(e) => set('invoicesGenerated', Number(e.target.value))}
+                value={numberFieldDisplay(form.invoicesGenerated)}
+                onChange={(e) => setIntegerField('invoicesGenerated', e.target.value)}
               />
             </Field>
 
@@ -286,8 +311,8 @@ export function OnboardingInvoiceFormModal({
                   type="number"
                   min="0"
                   className="wyra-input"
-                  value={form.invoicesPaid || ''}
-                  onChange={(e) => set('invoicesPaid', Number(e.target.value))}
+                  value={numberFieldDisplay(form.invoicesPaid)}
+                  onChange={(e) => setIntegerField('invoicesPaid', e.target.value)}
                 />
               </Field>
 
@@ -297,8 +322,8 @@ export function OnboardingInvoiceFormModal({
                   min="0"
                   step="0.01"
                   className="wyra-input"
-                  value={form.totalAmountPaid || ''}
-                  onChange={(e) => set('totalAmountPaid', Number(e.target.value))}
+                  value={numberFieldDisplay(form.totalAmountPaid)}
+                  onChange={(e) => setDecimalField('totalAmountPaid', e.target.value)}
                   placeholder="0.00"
                 />
               </Field>
@@ -309,8 +334,8 @@ export function OnboardingInvoiceFormModal({
                   min="0"
                   step="0.01"
                   className="wyra-input"
-                  value={form.pendingAmount || ''}
-                  onChange={(e) => set('pendingAmount', Number(e.target.value))}
+                  value={numberFieldDisplay(form.pendingAmount)}
+                  onChange={(e) => setDecimalField('pendingAmount', e.target.value)}
                   placeholder="0.00"
                 />
               </Field>

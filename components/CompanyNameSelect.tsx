@@ -94,8 +94,7 @@ export function CompanyNameSelect(props: CompanyNameSelectProps) {
   const triggerLabel = useMemo(() => {
     if (selected.length === 0) return placeholder
     if (!multiple) return selected[0]
-    if (selected.length === 1) return selected[0]
-    return `${selected.length} companies selected`
+    return selected.join(', ')
   }, [multiple, placeholder, selected])
 
   if (options.length === 0) {
@@ -144,9 +143,9 @@ export function CompanyNameSelect(props: CompanyNameSelectProps) {
           id={listId}
           role="listbox"
           aria-multiselectable={multiple}
-          className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-theme bg-theme-modal shadow-lg"
+          className="absolute z-50 mt-2 w-full wyra-dropdown-panel shadow-lg"
         >
-          <div className="max-h-60 overflow-y-auto py-1">
+          <div className="wyra-dropdown-menu">
             {!multiple ? (
               <button
                 type="button"
@@ -175,6 +174,128 @@ export function CompanyNameSelect(props: CompanyNameSelectProps) {
                     {isSelected ? <Check size={14} className="text-aqua" /> : null}
                   </span>
                   <span className="truncate">{name}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+export type WyraSelectOption = {
+  value: string
+  label: string
+}
+
+interface WyraSelectProps {
+  value: string
+  onChange: (value: string) => void
+  options: WyraSelectOption[]
+  placeholder?: string
+  className?: string
+  id?: string
+  allowEmpty?: boolean
+}
+
+export function WyraSelect({
+  value,
+  onChange,
+  options,
+  placeholder = 'Select...',
+  className = '',
+  id,
+  allowEmpty = true,
+}: WyraSelectProps) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const listId = useId()
+
+  const selectedLabel = options.find((option) => option.value === value)?.label
+
+  useEffect(() => {
+    if (!open) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open])
+
+  return (
+    <div ref={rootRef} className={`relative ${className}`}>
+      <button
+        id={id}
+        type="button"
+        className="wyra-input flex w-full items-center justify-between gap-2 text-left"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span className={selectedLabel ? 'truncate' : 'truncate text-theme-muted opacity-70'}>
+          {selectedLabel ?? placeholder}
+        </span>
+        <ChevronDown
+          size={16}
+          className={`shrink-0 text-theme-muted transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {open ? (
+        <div
+          id={listId}
+          role="listbox"
+          className="absolute z-50 mt-2 w-full wyra-dropdown-panel shadow-lg"
+        >
+          <div className="wyra-dropdown-menu">
+            {allowEmpty ? (
+              <button
+                type="button"
+                role="option"
+                aria-selected={!value}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-theme-muted hover:bg-theme-hover"
+                onClick={() => {
+                  onChange('')
+                  setOpen(false)
+                }}
+              >
+                <span className="w-4" />
+                {placeholder}
+              </button>
+            ) : null}
+
+            {options.map((option) => {
+              const isSelected = option.value === value
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-theme-fg hover:bg-theme-hover"
+                  onClick={() => {
+                    onChange(option.value)
+                    setOpen(false)
+                  }}
+                >
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                    {isSelected ? <Check size={14} className="text-aqua" /> : null}
+                  </span>
+                  <span className="truncate">{option.label}</span>
                 </button>
               )
             })}

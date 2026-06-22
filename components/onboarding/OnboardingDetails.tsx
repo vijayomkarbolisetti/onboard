@@ -1,22 +1,14 @@
 'use client'
 
-import {
-  Building2,
-  Calendar,
-  MessageSquare,
-  Pencil,
-  Phone,
-  Plus,
-  Rocket,
-  Target,
-  Trash2,
-  Users,
-} from 'lucide-react'
+import { Building2, Download, FileSpreadsheet, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { OnboardingFormModal } from '@/components/OnboardingFormModal'
+import { RowDetailsModal, type DetailField } from '@/components/RowDetailsModal'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
+import { exportOnboardingsExcel, downloadOnboardingTemplate } from '@/lib/onboardingExcel'
 import type { CreateOnboardingInput, Onboarding } from '@/types'
 import {
+  formatAmount,
   formatDate,
   onboardingStatusClass,
   onboardingStatusLabel,
@@ -32,6 +24,90 @@ interface OnboardingDetailsProps {
   onDelete: (id: string) => Promise<void>
 }
 
+const columns = [
+  'S.No',
+  'Organization',
+  'No.of AI SDRs',
+  'Onboarding Date',
+  'End Date',
+  'Comitted Amount',
+  'Paid Amount',
+  '1st campaign Launch date',
+  'no.of campaigns',
+  'Targeted Leads',
+  'Contacted Leads',
+  'Interested Leads',
+  'Total Replies',
+  'Status',
+  'Remark',
+] as const
+
+function cellValue(
+  item: Onboarding,
+  column: (typeof columns)[number],
+  index: number,
+) {
+  switch (column) {
+    case 'S.No':
+      return index + 1
+    case 'Organization':
+      return item.organization || '—'
+    case 'No.of AI SDRs':
+      return item.noOfAiSdrs ?? 0
+    case 'Onboarding Date':
+      return formatDate(item.onboardingDate)
+    case 'End Date':
+      return formatDate(item.endDate)
+    case 'Comitted Amount':
+      return formatAmount(item.committedAmount ?? 0, 'USD')
+    case 'Paid Amount':
+      return formatAmount(item.paidAmount ?? 0, 'USD')
+    case '1st campaign Launch date':
+      return formatDate(item.campaignLaunchDate)
+    case 'no.of campaigns':
+      return item.noOfCampaigns ?? 0
+    case 'Targeted Leads':
+      return item.targetedLeads ?? 0
+    case 'Contacted Leads':
+      return item.contactedLeads ?? 0
+    case 'Interested Leads':
+      return item.interestedLeads ?? 0
+    case 'Total Replies':
+      return item.totalReplies ?? 0
+    case 'Status':
+      return item.status ? (
+        <span
+          className={cn(
+            'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold capitalize',
+            onboardingStatusClass(item.status),
+          )}
+        >
+          {onboardingStatusLabel(item.status)}
+        </span>
+      ) : (
+        '—'
+      )
+    case 'Remark':
+      return (
+        <span className="block max-w-[200px] truncate" title={item.remark}>
+          {item.remark || '—'}
+        </span>
+      )
+    default:
+      return '—'
+  }
+}
+
+function buildOnboardingDetailFields(item: Onboarding, index: number): DetailField[] {
+  return columns
+    .filter((col) => col !== 'S.No')
+    .map((col) => ({
+      label: col,
+      value: cellValue(item, col, index),
+      fullWidth: col === 'Remark',
+    }))
+}
+
 export function OnboardingDetails({
   onboardings,
   loading,
@@ -41,6 +117,8 @@ export function OnboardingDetails({
 }: OnboardingDetailsProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Onboarding | null>(null)
+  const [viewing, setViewing] = useState<Onboarding | null>(null)
+  const [viewingIndex, setViewingIndex] = useState(0)
   const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
     onConfirm: onDelete,
     successMessage: 'Client tracker deleted',
@@ -48,7 +126,26 @@ export function OnboardingDetails({
   })
 
   const actionToolbar = (
-    <div className="flex justify-end">
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <button
+        type="button"
+        onClick={() => downloadOnboardingTemplate()}
+        title="Download sample Excel"
+        aria-label="Download sample Excel"
+        className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover"
+      >
+        <FileSpreadsheet size={18} />
+      </button>
+      <button
+        type="button"
+        onClick={() => exportOnboardingsExcel(onboardings)}
+        disabled={onboardings.length === 0}
+        title="Export Excel"
+        aria-label="Export Excel"
+        className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
+      >
+        <Download size={18} />
+      </button>
       <button type="button" onClick={() => setCreateOpen(true)} className="btn-wyra">
         <Plus size={16} />
         Create Client Tracker
@@ -56,69 +153,63 @@ export function OnboardingDetails({
     </div>
   )
 
-  const contentPanel = loading ? (
+  const tablePanel = loading ? (
     <div className="p-5 sm:p-7">
-      <div className="grid items-stretch gap-5 md:grid-cols-2 2xl:grid-cols-3">
-        {[1, 2, 3].map((item) => (
-          <div
-            key={item}
-            className="h-64 animate-pulse rounded-2xl border border-theme bg-theme-hover"
-          />
-        ))}
-      </div>
+      <div className="h-64 animate-pulse rounded-2xl border border-theme bg-theme-hover" />
     </div>
   ) : onboardings.length === 0 ? (
     <div className="p-5 sm:p-7">
-      <div className="rounded-2xl border border-dashed border-theme-strong px-6 py-20 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-aqua/10">
-          <Building2 className="text-aqua" size={32} />
-        </div>
-        <h3 className="mt-5 text-lg font-semibold text-theme-fg">No campaigns yet</h3>
+      <div className="rounded-2xl border border-dashed border-theme-strong px-6 py-16 text-center">
+        <Building2 className="mx-auto text-theme-muted" size={40} />
+        <h3 className="mt-4 text-lg font-semibold text-theme-fg">No campaigns yet</h3>
         <p className="mt-2 text-sm text-theme-muted">
           Create your first client tracker to start monitoring leads
         </p>
       </div>
     </div>
   ) : (
-    <div className="p-5 sm:p-7">
-      <div className="grid items-stretch gap-5 md:grid-cols-2 2xl:grid-cols-3">
-        {onboardings.map((item) => (
-          <article
-            key={item.id}
-            className="glass-panel flex h-full flex-col overflow-hidden transition duration-300 hover:border-aqua/30"
-          >
-            <div className="h-0.5 shrink-0 bg-wyra-gradient opacity-80" />
-
-            <div className="flex flex-1 flex-col p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-lg font-bold text-theme-fg">
-                    {item.organization || 'Unnamed organization'}
-                  </h3>
-                  <p className="mt-1 text-sm text-theme-muted">
-                    1st Launch: {formatDate(item.campaignLaunchDate)}
-                    {item.noOfCampaigns != null && item.noOfCampaigns > 0
-                      ? ` · ${item.noOfCampaigns} campaign${item.noOfCampaigns === 1 ? '' : 's'}`
-                      : ''}
-                  </p>
-                  <span
-                    className={cn(
-                      'mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold capitalize',
-                      onboardingStatusClass(item.status),
-                    )}
-                  >
-                    {onboardingStatusLabel(item.status)}
-                  </span>
-                </div>
-
-                <div className="flex shrink-0 items-center gap-1">
+    <div className="overflow-x-auto">
+      <table className="wyra-data-table w-full min-w-[1600px] text-left text-sm">
+        <thead className="bg-theme-elevated text-xs uppercase tracking-wider text-theme-muted">
+          <tr>
+            {columns.map((col) => (
+              <th key={col} className="whitespace-nowrap px-4 py-3 font-semibold">
+                {col}
+              </th>
+            ))}
+            <th className="whitespace-nowrap px-4 py-3 font-semibold">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {onboardings.map((item, index) => (
+            <tr
+              key={item.id}
+              className="cursor-pointer transition hover:bg-theme-hover"
+              onClick={() => {
+                setViewing(item)
+                setViewingIndex(index)
+              }}
+            >
+              {columns.map((col) => (
+                <td
+                  key={col}
+                  className={cn(
+                    'whitespace-nowrap px-4 py-3',
+                    col === 'Organization' ? 'font-semibold text-theme-fg' : 'text-theme-body',
+                  )}
+                >
+                  {cellValue(item, col, index)}
+                </td>
+              ))}
+              <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                <div className="flex gap-1">
                   <button
                     type="button"
                     onClick={() => setEditing(item)}
-                    className="rounded-lg p-2 text-theme-muted transition hover:bg-aqua/10 hover:text-aqua"
-                    title="Edit client tracker"
+                    className="rounded-lg p-2 text-theme-muted hover:bg-aqua/10 hover:text-aqua"
+                    title="Edit"
                   >
-                    <Pencil size={16} />
+                    <Pencil size={15} />
                   </button>
                   <button
                     type="button"
@@ -127,64 +218,17 @@ export function OnboardingDetails({
                         title: 'Delete client tracker?',
                       })
                     }
-                    className="rounded-lg p-2 text-theme-muted transition hover:bg-red-500/10 hover:text-red-400"
-                    title="Delete client tracker"
+                    className="rounded-lg p-2 text-theme-muted hover:bg-red-500/10 hover:text-red-400"
+                    title="Delete"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={15} />
                   </button>
                 </div>
-              </div>
-
-              <div className="mt-5 grid gap-2.5 text-sm">
-                <div className="flex items-center gap-2.5 text-theme-muted">
-                  <Users size={15} className="shrink-0 text-aqua" />
-                  <span>No.of AI SDRs: {item.noOfAiSdrs ?? 0}</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-theme-muted">
-                  <Calendar size={15} className="shrink-0 text-aqua" />
-                  <span>Onboarding: {formatDate(item.onboardingDate)}</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-theme-muted">
-                  <Rocket size={15} className="shrink-0 text-lime" />
-                  <span>End Date: {formatDate(item.endDate)}</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-theme-muted">
-                  <Calendar size={15} className="shrink-0 text-wyra-blue" />
-                  <span>1st campaign Launch: {formatDate(item.campaignLaunchDate)}</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-theme-muted">
-                  <Rocket size={15} className="shrink-0 text-wyra-blue" />
-                  <span>no.of campaigns: {item.noOfCampaigns ?? 0}</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-theme-muted">
-                  <Target size={15} className="shrink-0 text-lime" />
-                  <span>Targeted Leads: {item.targetedLeads ?? 0}</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-theme-muted">
-                  <Phone size={15} className="shrink-0 text-lime" />
-                  <span>Contacted Leads: {item.contactedLeads ?? 0}</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-theme-muted">
-                  <Users size={15} className="shrink-0 text-wyra-blue" />
-                  <span>Interested Leads: {item.interestedLeads ?? 0}</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-theme-muted">
-                  <MessageSquare size={15} className="shrink-0 text-aqua" />
-                  <span>Total Replies: {item.totalReplies ?? 0}</span>
-                </div>
-              </div>
-
-              <div className="mt-4 min-h-[4.5rem] rounded-xl border border-theme bg-theme-hover px-3 py-2.5 text-sm">
-                {item.remark ? (
-                  <p className="text-theme-body leading-relaxed">{item.remark}</p>
-                ) : (
-                  <p className="text-theme-muted italic">No remark added</p>
-                )}
-              </div>
-            </div>
-          </article>
-        ))}
-      </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 
@@ -194,7 +238,7 @@ export function OnboardingDetails({
 
       <div className="content-shell overflow-hidden">
         <div className="h-px bg-gradient-to-r from-transparent via-aqua/50 to-transparent" />
-        {contentPanel}
+        {tablePanel}
       </div>
 
       <OnboardingFormModal
@@ -216,6 +260,22 @@ export function OnboardingDetails({
       />
 
       {deleteModal}
+
+      <RowDetailsModal
+        open={Boolean(viewing)}
+        title={viewing?.organization || 'Client tracker'}
+        subtitle="Client Tracker"
+        fields={viewing ? buildOnboardingDetailFields(viewing, viewingIndex) : []}
+        onClose={() => setViewing(null)}
+        onEdit={
+          viewing
+            ? () => {
+                setEditing(viewing)
+                setViewing(null)
+              }
+            : undefined
+        }
+      />
     </div>
   )
 }

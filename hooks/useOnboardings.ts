@@ -43,7 +43,7 @@ export function useOnboardings() {
       createdAt: new Date().toISOString(),
     }
 
-    setOnboardings((prev) => [optimistic, ...prev])
+    setOnboardings((prev) => [...prev, optimistic])
 
     void createOnboarding(input)
       .then((created) => {

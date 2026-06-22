@@ -47,10 +47,12 @@ function generateId() {
   return crypto.randomUUID()
 }
 
-function sortByCreatedAt<T extends { createdAt: string }>(items: T[]) {
-  return [...items].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  )
+function sortRecordsByOrder<T extends { createdAt: string; id?: string }>(items: T[]) {
+  return [...items].sort((a, b) => {
+    const timeDiff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    if (timeDiff !== 0) return timeDiff
+    return (a.id ?? '').localeCompare(b.id ?? '')
+  })
 }
 
 async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
@@ -161,7 +163,7 @@ export async function fetchInvoices(): Promise<Invoice[]> {
       getDocs(collection(firestore, 'invoices')),
       'Loading invoices',
     )
-    return sortByCreatedAt(
+    return sortRecordsByOrder(
       snapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data(),
@@ -169,7 +171,7 @@ export async function fetchInvoices(): Promise<Invoice[]> {
     )
   }
 
-  return sortByCreatedAt(readLocal<Invoice>(INVOICES_KEY))
+  return sortRecordsByOrder(readLocal<Invoice>(INVOICES_KEY))
 }
 
 export async function createInvoice(input: CreateInvoiceInput): Promise<Invoice> {

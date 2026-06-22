@@ -37,7 +37,7 @@ export function useOnboardingInvoices() {
 
   const add = async (input: CreateOnboardingInvoiceInput) => {
     const created = await createOnboardingInvoice(input)
-    setRecords((prev) => [created, ...prev])
+    setRecords((prev) => [...prev, created])
     return created
   }
 
@@ -66,9 +66,10 @@ export function useOnboardingInvoices() {
   }
 
   const importMany = async (inputs: CreateOnboardingInvoiceInput[]) => {
-    const created = await createOnboardingInvoicesBulk(inputs)
-    setRecords((prev) => [...created, ...prev])
-    return created
+    if (inputs.length === 0) return []
+    await createOnboardingInvoicesBulk(inputs)
+    await load()
+    return inputs.length
   }
 
   return { records, loading, error, reload: load, add, update, remove, importMany }

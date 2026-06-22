@@ -7,10 +7,12 @@ import {
   parseExcelSheet,
   parseNumber,
   writeExcelFile,
+  downloadExcelTemplate,
 } from '@/lib/excelUtils'
-import { resolveInvoiceNumber } from '@/utils/format'
+import { formatCompanyNames, resolveInvoiceNumber } from '@/utils/format'
 
 export const PAID_INVOICE_HEADERS = [
+  'S.No',
   'Invoice Date',
   'Customer Name',
   'Company Name',
@@ -130,10 +132,11 @@ export async function parsePaidInvoicesExcel(file: File) {
 }
 
 export function exportPaidInvoicesExcel(invoices: PaidInvoice[]) {
-  const rows = invoices.map((invoice) => ({
+  const rows = invoices.map((invoice, index) => ({
+    'S.No': index + 1,
     'Invoice Date': formatExportDate(invoice.invoiceDate),
     'Customer Name': invoice.customerName ?? '',
-    'Company Name': invoice.companyName ?? '',
+    'Company Name': formatCompanyNames(invoice.companyName),
     'Invoice Number': resolveInvoiceNumber(invoice as unknown as Record<string, unknown>),
     'Invoice Amount': invoice.invoiceAmount ?? 0,
     Status: invoice.status ?? '',
@@ -143,4 +146,8 @@ export function exportPaidInvoicesExcel(invoices: PaidInvoice[]) {
 
   const timestamp = new Date().toISOString().slice(0, 10)
   writeExcelFile('Paid Invoices', PAID_INVOICE_HEADERS, rows, `paid-invoices-${timestamp}.xlsx`)
+}
+
+export function downloadPaidInvoiceTemplate() {
+  downloadExcelTemplate('Paid Invoices', PAID_INVOICE_HEADERS, 'paid-invoices-sample.xlsx')
 }

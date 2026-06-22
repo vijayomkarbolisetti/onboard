@@ -1,10 +1,12 @@
 'use client'
 
-import { Download, Pencil, Plus, Trash2, Upload, Wallet } from 'lucide-react'
+import { Download, FileSpreadsheet, Pencil, Plus, Trash2, Upload, Wallet } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
+import { WyraSelect } from '@/components/CompanyNameSelect'
+import { RowDetailsModal, type DetailField } from '@/components/RowDetailsModal'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
-import { EXPENSE_TABLE_COLUMNS, exportExpensesExcel, parseExpensesExcel } from '@/lib/expenseExcel'
+import { EXPENSE_TABLE_COLUMNS, exportExpensesExcel, downloadExpenseTemplate, parseExpensesExcel } from '@/lib/expenseExcel'
 import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
 import type { CreateExpenseInput, Expense } from '@/types'
@@ -56,6 +58,13 @@ function cellValue(
   }
 }
 
+function buildExpenseDetailFields(expense: Expense, index: number): DetailField[] {
+  return EXPENSE_TABLE_COLUMNS.map((col) => ({
+    label: col,
+    value: cellValue(expense, col, index),
+  }))
+}
+
 export function Expenses({
   expenses,
   loading,
@@ -66,6 +75,8 @@ export function Expenses({
 }: ExpensesProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
+  const [viewing, setViewing] = useState<Expense | null>(null)
+  const [viewingIndex, setViewingIndex] = useState(0)
   const [importing, setImporting] = useState(false)
   const [toolNameFilter, setToolNameFilter] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -134,22 +145,29 @@ export function Expenses({
         <label htmlFor="expense-tool-filter" className="shrink-0 text-sm font-semibold text-theme-label">
           Tool Name
         </label>
-        <select
+        <WyraSelect
           id="expense-tool-filter"
-          className="wyra-input py-2"
+          className="min-w-0 flex-1"
           value={toolNameFilter}
-          onChange={(event) => setToolNameFilter(event.target.value)}
-        >
-          <option value="">All tools</option>
-          {toolNameOptions.map((toolName) => (
-            <option key={toolName} value={toolName}>
-              {toolName}
-            </option>
-          ))}
-        </select>
+          onChange={setToolNameFilter}
+          placeholder="All tools"
+          options={toolNameOptions.map((toolName) => ({
+            value: toolName,
+            label: toolName,
+          }))}
+        />
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => downloadExpenseTemplate()}
+          title="Download sample Excel"
+          aria-label="Download sample Excel"
+          className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover"
+        >
+          <FileSpreadsheet size={18} />
+        </button>
         <button
           type="button"
           onClick={handleImportClick}
@@ -215,13 +233,20 @@ export function Expenses({
         </thead>
         <tbody>
           {filteredExpenses.map((expense, index) => (
-            <tr key={expense.id} className="transition hover:bg-theme-hover">
+            <tr
+              key={expense.id}
+              className="cursor-pointer transition hover:bg-theme-hover"
+              onClick={() => {
+                setViewing(expense)
+                setViewingIndex(index)
+              }}
+            >
               {EXPENSE_TABLE_COLUMNS.map((col) => (
                 <td key={col} className="whitespace-nowrap px-4 py-3 text-theme-body">
                   {cellValue(expense, col, index)}
                 </td>
               ))}
-              <td className="whitespace-nowrap px-4 py-3">
+              <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
                 <div className="flex gap-1">
                   <button
                     type="button"
@@ -288,6 +313,22 @@ export function Expenses({
       />
 
       {deleteModal}
+
+      <RowDetailsModal
+        open={Boolean(viewing)}
+        title={viewing?.toolName || 'Expense'}
+        subtitle="Expenses"
+        fields={viewing ? buildExpenseDetailFields(viewing, viewingIndex) : []}
+        onClose={() => setViewing(null)}
+        onEdit={
+          viewing
+            ? () => {
+                setEditing(viewing)
+                setViewing(null)
+              }
+            : undefined
+        }
+      />
     </div>
   )
 }

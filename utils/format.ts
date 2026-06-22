@@ -87,3 +87,45 @@ export function normalizeOpenInvoice(record: OpenInvoice): OpenInvoice {
   const invoiceNumber = resolveInvoiceNumber(record as unknown as Record<string, unknown>)
   return invoiceNumber ? { ...record, invoiceNumber } : record
 }
+
+/** Form state for controlled number inputs — empty string while the user clears the field. */
+export type NumberFieldValue = number | ''
+
+export function numberFieldDisplay(value: NumberFieldValue): number | '' {
+  return value === '' ? '' : value
+}
+
+export function parseIntegerField(raw: string): NumberFieldValue {
+  if (raw === '') return ''
+  const parsed = Number(raw)
+  if (Number.isNaN(parsed)) return ''
+  return Math.max(0, Math.trunc(parsed))
+}
+
+export function parseDecimalField(raw: string): NumberFieldValue {
+  if (raw === '') return ''
+  const parsed = Number(raw)
+  if (Number.isNaN(parsed)) return ''
+  return Math.max(0, parsed)
+}
+
+export function toNumber(value: NumberFieldValue, fallback = 0): number {
+  return value === '' ? fallback : value
+}
+
+export function parseCompanyNames(value: string | null | undefined): string[] {
+  return String(value ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+export function formatCompanyNames(names: string[] | string | null | undefined): string {
+  if (Array.isArray(names)) {
+    return names
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .join(', ')
+  }
+  return parseCompanyNames(names).join(', ')
+}
