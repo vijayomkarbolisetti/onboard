@@ -3,8 +3,57 @@ import { NextResponse } from 'next/server'
 import { getSingleOrganizationId, getSingleOrganizationName } from '@/lib/single-org'
 import { isTeamAuthContext, resolveTeamContext } from '@/lib/team-auth'
 
+type ResolvedOrganization = {
+  id: string
+  name: string
+  slug: string | null
+}
+
+async function resolveAppOrganization(
+  userId: string,
+  sessionOrgId?: string | null,
+): Promise<ResolvedOrganization | null> {
+  const client = await clerkClient()
+  const configuredOrgId = getSingleOrganizationId()
+
+  if (configuredOrgId) {
+    const org = await client.organizations.getOrganization({ organizationId: configuredOrgId })
+    return { id: org.id, name: org.name, slug: org.slug }
+  }
+
+  if (sessionOrgId) {
+    const org = await client.organizations.getOrganization({ organizationId: sessionOrgId })
+    return { id: org.id, name: org.name, slug: org.slug }
+  }
+
+  const { data: organizations } = await client.organizations.getOrganizationList({ limit: 2 })
+  if (organizations.length === 1) {
+    return {
+      id: organizations[0].id,
+      name: organizations[0].name,
+      slug: organizations[0].slug,
+    }
+  }
+
+  const { data: memberships } = await client.users.getOrganizationMembershipList({
+    userId,
+    limit: 1,
+  })
+
+  const membershipOrg = memberships[0]?.organization
+  if (membershipOrg) {
+    return {
+      id: membershipOrg.id,
+      name: membershipOrg.name,
+      slug: membershipOrg.slug ?? null,
+    }
+  }
+
+  return null
+}
+
 export async function GET() {
-  const { userId } = await auth()
+  const { userId, orgId: sessionOrgId } = await auth()
 
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -12,25 +61,8 @@ export async function GET() {
 
   try {
     const client = await clerkClient()
-    const configuredOrgId = getSingleOrganizationId()
     const orgName = getSingleOrganizationName()
-
-    let organization: { id: string; name: string; slug: string | null } | null = null
-
-    if (configuredOrgId) {
-      const org = await client.organizations.getOrganization({ organizationId: configuredOrgId })
-      organization = { id: org.id, name: org.name, slug: org.slug }
-    } else {
-      const { data: organizations } = await client.organizations.getOrganizationList({ limit: 2 })
-
-      if (organizations.length === 1) {
-        organization = {
-          id: organizations[0].id,
-          name: organizations[0].name,
-          slug: organizations[0].slug,
-        }
-      }
-    }
+    const organization = await resolveAppOrganization(userId, sessionOrgId)
 
     if (!organization) {
       return NextResponse.json({
