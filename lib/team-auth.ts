@@ -13,7 +13,36 @@ async function resolveOrganizationId(
   sessionOrgId: string | null | undefined,
   userId: string,
 ): Promise<string | null> {
+  const client = await clerkClient()
   const configuredOrgId = getSingleOrganizationId()
+
+  const { data: memberships } = await client.users.getOrganizationMembershipList({
+    userId,
+    limit: 10,
+  })
+
+  const membershipOrgIds = memberships.map((membership) => membership.organization.id)
+
+  if (configuredOrgId && membershipOrgIds.includes(configuredOrgId)) {
+    return configuredOrgId
+  }
+
+  if (sessionOrgId && membershipOrgIds.includes(sessionOrgId)) {
+    return sessionOrgId
+  }
+
+  if (memberships.length === 1) {
+    return memberships[0].organization.id
+  }
+
+  if (memberships.length > 1 && sessionOrgId) {
+    return sessionOrgId
+  }
+
+  if (memberships.length > 0) {
+    return memberships[0].organization.id
+  }
+
   if (configuredOrgId) {
     return configuredOrgId
   }
@@ -22,7 +51,6 @@ async function resolveOrganizationId(
     return sessionOrgId
   }
 
-  const client = await clerkClient()
   const { data: organizations } = await client.organizations.getOrganizationList({
     limit: 2,
   })
@@ -31,12 +59,7 @@ async function resolveOrganizationId(
     return organizations[0].id
   }
 
-  const { data: memberships } = await client.users.getOrganizationMembershipList({
-    userId,
-    limit: 1,
-  })
-
-  return memberships[0]?.organization.id ?? null
+  return null
 }
 
 async function resolveMembershipRole(

@@ -3,6 +3,7 @@
 import { ClipboardList, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { OnboardingInvoiceFormModal } from '@/components/OnboardingInvoiceFormModal'
+import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import {
   exportOnboardingInvoicesExcel,
   parseOnboardingInvoicesExcel,
@@ -63,6 +64,11 @@ export function OnboardingInvoices({
   const [editing, setEditing] = useState<OnboardingInvoiceRecord | null>(null)
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
+    onConfirm: onDelete,
+    successMessage: 'Record deleted',
+    errorMessage: 'Failed to delete record',
+  })
 
   const handleExport = () => {
     exportOnboardingInvoicesExcel(records)
@@ -169,7 +175,11 @@ export function OnboardingInvoices({
                         </button>
                         <button
                           type="button"
-                          onClick={() => void onDelete(record.id)}
+                          onClick={() =>
+                            openDeleteConfirm(record.id, record.companyName || 'this record', {
+                              title: 'Delete onboarding record?',
+                            })
+                          }
                           className="rounded-lg p-2 text-theme-muted hover:bg-red-500/10 hover:text-red-400"
                           title="Delete"
                         >
@@ -233,6 +243,8 @@ export function OnboardingInvoices({
           if (editing) await onUpdate(editing.id, input)
         }}
       />
+
+      {deleteModal}
     </div>
   )
 }

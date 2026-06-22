@@ -3,6 +3,7 @@
 import { Building2, Calendar, MessageSquare, Pencil, Plus, Rocket, Target, Trash2, Users } from 'lucide-react'
 import { useState } from 'react'
 import { OnboardingFormModal } from '@/components/OnboardingFormModal'
+import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import type { CreateOnboardingInput, Onboarding } from '@/types'
 import {
   formatDate,
@@ -29,6 +30,11 @@ export function OnboardingDetails({
 }: OnboardingDetailsProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Onboarding | null>(null)
+  const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
+    onConfirm: onDelete,
+    successMessage: 'Client tracker deleted',
+    errorMessage: 'Failed to delete client tracker',
+  })
 
   const actionToolbar = (
     <div className="flex flex-wrap items-center justify-end gap-2">
@@ -102,7 +108,11 @@ export function OnboardingDetails({
                   </button>
                   <button
                     type="button"
-                    onClick={() => void onDelete(item.id)}
+                    onClick={() =>
+                      openDeleteConfirm(item.id, item.organization || 'Unnamed organization', {
+                        title: 'Delete client tracker?',
+                      })
+                    }
                     className="rounded-lg p-2 text-theme-muted transition hover:bg-red-500/10 hover:text-red-400"
                     title="Delete client tracker"
                   >
@@ -177,6 +187,8 @@ export function OnboardingDetails({
           if (editing) await onUpdate(editing.id, input)
         }}
       />
+
+      {deleteModal}
     </div>
   )
 }

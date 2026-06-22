@@ -3,6 +3,7 @@
 import { CircleDollarSign, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { PaidInvoiceFormModal } from '@/components/PaidInvoiceFormModal'
+import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
 import {
@@ -73,6 +74,11 @@ export function PaidInvoices({
   const [editing, setEditing] = useState<PaidInvoice | null>(null)
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
+    onConfirm: onDelete,
+    successMessage: 'Paid invoice deleted',
+    errorMessage: 'Failed to delete paid invoice',
+  })
 
   const handleImportClick = () => {
     fileInputRef.current?.click()
@@ -177,7 +183,13 @@ export function PaidInvoices({
                   </button>
                   <button
                     type="button"
-                    onClick={() => void onDelete(invoice.id)}
+                    onClick={() =>
+                      openDeleteConfirm(
+                        invoice.id,
+                        invoice.invoiceNumber || invoice.companyName || 'this invoice',
+                        { title: 'Delete paid invoice?' },
+                      )
+                    }
                     className="rounded-lg p-2 text-theme-muted hover:bg-red-500/10 hover:text-red-400"
                     title="Delete"
                   >
@@ -228,6 +240,8 @@ export function PaidInvoices({
           await onUpdate(editing.id, input)
         }}
       />
+
+      {deleteModal}
     </div>
   )
 }

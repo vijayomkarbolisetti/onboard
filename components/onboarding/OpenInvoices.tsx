@@ -3,6 +3,7 @@
 import { Download, FileText, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { OpenInvoiceFormModal } from '@/components/OpenInvoiceFormModal'
+import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
 import {
@@ -74,6 +75,11 @@ export function OpenInvoices({
   const [editing, setEditing] = useState<OpenInvoice | null>(null)
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
+    onConfirm: onDelete,
+    successMessage: 'Open invoice deleted',
+    errorMessage: 'Failed to delete open invoice',
+  })
 
   const handleImportClick = () => {
     fileInputRef.current?.click()
@@ -178,7 +184,13 @@ export function OpenInvoices({
                   </button>
                   <button
                     type="button"
-                    onClick={() => void onDelete(invoice.id)}
+                    onClick={() =>
+                      openDeleteConfirm(
+                        invoice.id,
+                        invoice.invoiceNumber || invoice.companyName || 'this invoice',
+                        { title: 'Delete open invoice?' },
+                      )
+                    }
                     className="rounded-lg p-2 text-theme-muted hover:bg-red-500/10 hover:text-red-400"
                     title="Delete"
                   >
@@ -229,6 +241,8 @@ export function OpenInvoices({
           await onUpdate(editing.id, input)
         }}
       />
+
+      {deleteModal}
     </div>
   )
 }

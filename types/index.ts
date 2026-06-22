@@ -4,6 +4,7 @@ export type SaasMspAgreement = 'SaaS' | 'MSP'
 
 export interface Onboarding {
   id: string
+  organizationId?: string
   organization: string
   onboardingDate: string
   endDate: string
@@ -18,6 +19,7 @@ export interface Onboarding {
 
 export interface OnboardingInvoiceRecord {
   id: string
+  organizationId?: string
   companyName: string
   saasMspAgreement: SaasMspAgreement
   sponsor: string
@@ -77,6 +79,7 @@ export interface CreateOnboardingInvoiceInput {
 
 export interface PaidInvoice {
   id: string
+  organizationId?: string
   invoiceDate: string
   customerName: string
   companyName: string
@@ -90,6 +93,7 @@ export interface PaidInvoice {
 
 export interface OpenInvoice {
   id: string
+  organizationId?: string
   invoiceDate: string
   customerName: string
   companyName: string
@@ -123,6 +127,7 @@ export interface CreateOpenInvoiceInput {
 
 export interface Expense {
   id: string
+  organizationId?: string
   toolName: string
   invoiceDate: string
   cardUsed: string

@@ -25,18 +25,18 @@ export function SingleOrgActivator({ children }: SingleOrgActivatorProps) {
 
     let cancelled = false
 
-    async function ensureActiveOrganization() {
+    async function syncOrganization() {
       try {
         const response = await fetch('/api/team/organization')
         const payload = await response.json()
+        const targetOrgId = payload.organization?.id as string | undefined
 
-        if (cancelled) {
+        if (!targetOrgId) {
           return
         }
 
-        const orgId = payload.organization?.id as string | undefined
-        if (orgId && organization?.id !== orgId) {
-          await setActive?.({ organization: orgId })
+        if (organization?.id !== targetOrgId) {
+          await setActive?.({ organization: targetOrgId })
         }
       } catch {
         // Non-members and pre-bootstrap states are handled in team UI.
@@ -47,17 +47,12 @@ export function SingleOrgActivator({ children }: SingleOrgActivatorProps) {
       }
     }
 
-    if (organization) {
-      setReady(true)
-      return
-    }
-
-    void ensureActiveOrganization()
+    void syncOrganization()
 
     return () => {
       cancelled = true
     }
-  }, [orgLoaded, listLoaded, organization, setActive])
+  }, [orgLoaded, listLoaded, organization?.id, setActive])
 
   if (!orgLoaded || !listLoaded || !ready) {
     return (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Layout } from '@/components/Layout'
 import { SingleOrgActivator } from '@/components/team/SingleOrgActivator'
 import { InviteTicketRedirect } from '@/components/team/InviteTicketRedirect'
@@ -62,6 +62,31 @@ export default function TrackerPage() {
       ]),
     [onboardingInvoicesState.records, onboardingState.onboardings],
   )
+
+  useEffect(() => {
+    if (activeTab === 'onboarding') {
+      void onboardingState.reload()
+    }
+    if (activeTab === 'onboarding-invoices') {
+      void onboardingInvoicesState.reload()
+    }
+    if (activeTab === 'paid-invoices') {
+      void paidInvoicesState.reload()
+    }
+    if (activeTab === 'open-invoices') {
+      void openInvoicesState.reload()
+    }
+    if (activeTab === 'expenses') {
+      void expensesState.reload()
+    }
+  }, [
+    activeTab,
+    onboardingState.reload,
+    onboardingInvoicesState.reload,
+    paidInvoicesState.reload,
+    openInvoicesState.reload,
+    expensesState.reload,
+  ])
 
   const tabContent = (
     <>
