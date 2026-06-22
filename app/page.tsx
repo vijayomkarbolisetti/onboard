@@ -100,7 +100,6 @@ export default function TrackerPage() {
           }}
           onUpdate={onboardingState.update}
           onDelete={onboardingState.remove}
-          onDeleteMany={onboardingState.removeMany}
         />
       )}
 
@@ -114,7 +113,6 @@ export default function TrackerPage() {
           }}
           onUpdate={onboardingInvoicesState.update}
           onDelete={onboardingInvoicesState.remove}
-          onDeleteMany={onboardingInvoicesState.removeMany}
           onImport={async (inputs) => {
             await onboardingInvoicesState.importMany(inputs)
           }}
@@ -132,7 +130,6 @@ export default function TrackerPage() {
           }}
           onUpdate={paidInvoicesState.update}
           onDelete={paidInvoicesState.remove}
-          onDeleteMany={paidInvoicesState.removeMany}
           onImport={async (inputs) => {
             await paidInvoicesState.importMany(inputs)
           }}
@@ -150,7 +147,6 @@ export default function TrackerPage() {
           }}
           onUpdate={openInvoicesState.update}
           onDelete={openInvoicesState.remove}
-          onDeleteMany={openInvoicesState.removeMany}
           onImport={async (inputs) => {
             await openInvoicesState.importMany(inputs)
           }}
@@ -167,7 +163,6 @@ export default function TrackerPage() {
           }}
           onUpdate={expensesState.update}
           onDelete={expensesState.remove}
-          onDeleteMany={expensesState.removeMany}
           onImport={async (inputs) => {
             await expensesState.importMany(inputs)
           }}

@@ -2,12 +2,9 @@
 
 import { Download, Pencil, Plus, Trash2, Upload, Wallet } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
-import { BulkDeleteBar, BulkSelectCheckbox } from '@/components/BulkDeleteBar'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
-import { useBulkDeleteConfirm } from '@/hooks/useBulkDeleteConfirm'
-import { useBulkSelection } from '@/hooks/useBulkSelection'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
-import { exportExpensesExcel, parseExpensesExcel } from '@/lib/expenseExcel'
+import { EXPENSE_TABLE_COLUMNS, exportExpensesExcel, parseExpensesExcel } from '@/lib/expenseExcel'
 import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
 import type { CreateExpenseInput, Expense } from '@/types'
@@ -20,23 +17,27 @@ interface ExpensesProps {
   onCreate: (input: CreateExpenseInput) => Promise<void>
   onUpdate: (id: string, input: CreateExpenseInput) => Promise<void>
   onDelete: (id: string) => Promise<void>
-  onDeleteMany: (ids: string[]) => Promise<void>
   onImport: (inputs: CreateExpenseInput[]) => Promise<void>
 }
 
-const columns = [
-  'S.No',
-  'Tool Name',
-  'Invoice Date',
-  'Card Used',
-  'Card Owner',
-  'Amount',
-  'Currency',
-] as const
+function formatExpenseAmount(amount: number) {
+  if (!Number.isFinite(amount)) return '—'
+  if (Number.isInteger(amount)) {
+    return amount.toLocaleString('en-US', { maximumFractionDigits: 0 })
+  }
+  return amount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
 
-function cellValue(expense: Expense, column: (typeof columns)[number], index: number) {
+function cellValue(
+  expense: Expense,
+  column: (typeof EXPENSE_TABLE_COLUMNS)[number],
+  index: number,
+) {
   switch (column) {
-    case 'S.No':
+    case 'NO':
       return index + 1
     case 'Tool Name':
       return expense.toolName || '—'
@@ -47,10 +48,7 @@ function cellValue(expense: Expense, column: (typeof columns)[number], index: nu
     case 'Card Owner':
       return expense.cardOwner || '—'
     case 'Amount':
-      return expense.amount.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
+      return formatExpenseAmount(expense.amount)
     case 'Currency':
       return expense.currency || '—'
     default:
@@ -64,29 +62,31 @@ export function Expenses({
   onCreate,
   onUpdate,
   onDelete,
-  onDeleteMany,
   onImport,
 }: ExpensesProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [importing, setImporting] = useState(false)
+  const [toolNameFilter, setToolNameFilter] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const itemIds = useMemo(() => expenses.map((expense) => expense.id), [expenses])
-  const bulk = useBulkSelection(itemIds)
   const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
     onConfirm: onDelete,
     successMessage: 'Expense deleted',
     errorMessage: 'Failed to delete expense',
   })
-  const { openBulkDeleteConfirm, bulkDeleteModal } = useBulkDeleteConfirm({
-    onConfirm: async (ids) => {
-      await onDeleteMany(ids)
-      bulk.clear()
-    },
-    itemLabel: 'expenses',
-    successMessage: 'Selected expenses deleted',
-    errorMessage: 'Failed to delete selected expenses',
-  })
+
+  const toolNameOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(expenses.map((expense) => expense.toolName.trim()).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b)),
+    [expenses],
+  )
+
+  const filteredExpenses = useMemo(() => {
+    if (!toolNameFilter) return expenses
+    return expenses.filter((expense) => expense.toolName === toolNameFilter)
+  }, [expenses, toolNameFilter])
 
   const handleImportClick = () => {
     fileInputRef.current?.click()
@@ -106,8 +106,21 @@ export function Expenses({
 
     try {
       const { records, importedCount } = await parseExpensesExcel(file)
+      if (records.length === 0) {
+        notify.error('No valid rows found in the Excel file')
+        return
+      }
+
       await onImport(records)
-      notify.success(`Imported ${importedCount} record(s) successfully.`)
+
+      const missingDates = records.filter((record) => !record.invoiceDate).length
+      if (missingDates > 0) {
+        notify.success(
+          `Imported ${importedCount} record(s). ${missingDates} row(s) had unparseable dates.`,
+        )
+      } else {
+        notify.success(`Imported ${importedCount} record(s) successfully.`)
+      }
     } catch (err) {
       notify.error(err instanceof Error ? err.message : 'Failed to import Excel file')
     } finally {
@@ -117,39 +130,50 @@ export function Expenses({
 
   const actionToolbar = (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <BulkDeleteBar
-        selectedCount={bulk.selectedCount}
-        totalCount={expenses.length}
-        allSelected={bulk.allSelected}
-        onToggleAll={bulk.toggleAll}
-        onDeleteSelected={() => openBulkDeleteConfirm(bulk.selectedList)}
-        itemLabel="expenses"
-      />
+      <div className="flex min-w-[220px] flex-1 items-center gap-2 sm:max-w-xs">
+        <label htmlFor="expense-tool-filter" className="shrink-0 text-sm font-semibold text-theme-label">
+          Tool Name
+        </label>
+        <select
+          id="expense-tool-filter"
+          className="wyra-input py-2"
+          value={toolNameFilter}
+          onChange={(event) => setToolNameFilter(event.target.value)}
+        >
+          <option value="">All tools</option>
+          {toolNameOptions.map((toolName) => (
+            <option key={toolName} value={toolName}>
+              {toolName}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="flex flex-wrap items-center justify-end gap-2">
-      <button
-        type="button"
-        onClick={handleImportClick}
-        disabled={importing}
-        title={importing ? 'Importing...' : 'Import Excel'}
-        aria-label="Import Excel"
-        className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
-      >
-        <Upload size={18} />
-      </button>
-      <button
-        type="button"
-        onClick={() => exportExpensesExcel(expenses)}
-        disabled={expenses.length === 0}
-        title="Export Excel"
-        aria-label="Export Excel"
-        className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
-      >
-        <Download size={18} />
-      </button>
-      <button type="button" onClick={() => setCreateOpen(true)} className="btn-wyra">
-        <Plus size={16} />
-        Add Expense
-      </button>
+        <button
+          type="button"
+          onClick={handleImportClick}
+          disabled={importing}
+          title={importing ? 'Importing...' : 'Import Excel'}
+          aria-label="Import Excel"
+          className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
+        >
+          <Upload size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={() => exportExpensesExcel(filteredExpenses)}
+          disabled={filteredExpenses.length === 0}
+          title="Export Excel"
+          aria-label="Export Excel"
+          className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
+        >
+          <Download size={18} />
+        </button>
+        <button type="button" onClick={() => setCreateOpen(true)} className="btn-wyra">
+          <Plus size={16} />
+          Add Expense
+        </button>
       </div>
     </div>
   )
@@ -168,19 +192,20 @@ export function Expenses({
         </p>
       </div>
     </div>
+  ) : filteredExpenses.length === 0 ? (
+    <div className="p-5 sm:p-7">
+      <div className="rounded-2xl border border-dashed border-theme-strong px-6 py-16 text-center">
+        <Wallet className="mx-auto text-theme-muted" size={40} />
+        <h3 className="mt-4 text-lg font-semibold text-theme-fg">No matching expenses</h3>
+        <p className="mt-2 text-sm text-theme-muted">Try a different Tool Name filter</p>
+      </div>
+    </div>
   ) : (
     <div className="overflow-x-auto">
       <table className="wyra-data-table w-full min-w-[900px] text-left text-sm">
         <thead className="bg-theme-elevated text-xs uppercase tracking-wider text-theme-muted">
           <tr>
-            <th className="w-10 whitespace-nowrap px-4 py-3 font-semibold">
-              <BulkSelectCheckbox
-                checked={bulk.allSelected}
-                onChange={bulk.toggleAll}
-                ariaLabel="Select all expenses"
-              />
-            </th>
-            {columns.map((col) => (
+            {EXPENSE_TABLE_COLUMNS.map((col) => (
               <th key={col} className="whitespace-nowrap px-4 py-3 font-semibold">
                 {col}
               </th>
@@ -189,16 +214,9 @@ export function Expenses({
           </tr>
         </thead>
         <tbody>
-          {expenses.map((expense, index) => (
+          {filteredExpenses.map((expense, index) => (
             <tr key={expense.id} className="transition hover:bg-theme-hover">
-              <td className="whitespace-nowrap px-4 py-3">
-                <BulkSelectCheckbox
-                  checked={bulk.isSelected(expense.id)}
-                  onChange={() => bulk.toggle(expense.id)}
-                  ariaLabel={`Select ${expense.toolName || 'expense'}`}
-                />
-              </td>
-              {columns.map((col) => (
+              {EXPENSE_TABLE_COLUMNS.map((col) => (
                 <td key={col} className="whitespace-nowrap px-4 py-3 text-theme-body">
                   {cellValue(expense, col, index)}
                 </td>
@@ -270,7 +288,6 @@ export function Expenses({
       />
 
       {deleteModal}
-      {bulkDeleteModal}
     </div>
   )
 }

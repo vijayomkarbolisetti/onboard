@@ -79,21 +79,27 @@ export function createOrgFirestoreStore<T extends OrgRecord>(
 
       const firestore = requireFirestore()
       const createdAt = new Date().toISOString()
-      const batch = writeBatch(firestore)
       const created: T[] = []
+      const batchSize = 400
 
-      inputs.forEach((input) => {
-        const ref = doc(collection(firestore, collectionName))
-        const record = {
-          ...input,
-          organizationId,
-          createdAt,
-        }
-        batch.set(ref, record)
-        created.push({ id: ref.id, ...record } as T)
-      })
+      for (let offset = 0; offset < inputs.length; offset += batchSize) {
+        const chunk = inputs.slice(offset, offset + batchSize)
+        const batch = writeBatch(firestore)
 
-      await batch.commit()
+        chunk.forEach((input) => {
+          const ref = doc(collection(firestore, collectionName))
+          const record = {
+            ...input,
+            organizationId,
+            createdAt,
+          }
+          batch.set(ref, record)
+          created.push({ id: ref.id, ...record } as T)
+        })
+
+        await batch.commit()
+      }
+
       return created
     },
 

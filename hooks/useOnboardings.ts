@@ -99,20 +99,5 @@ export function useOnboardings() {
     }
   }
 
-  const removeMany = async (ids: string[]) => {
-    if (ids.length === 0) return
-
-    const idSet = new Set(ids)
-    const previous = onboardings
-    setOnboardings((prev) => prev.filter((item) => !idSet.has(item.id)))
-
-    try {
-      await Promise.all(ids.map((id) => deleteOnboarding(id)))
-    } catch (err) {
-      setOnboardings(previous)
-      throw err
-    }
-  }
-
-  return { onboardings, loading, error, reload: load, add, update, updateStatus, remove, removeMany }
+  return { onboardings, loading, error, reload: load, add, update, updateStatus, remove }
 }

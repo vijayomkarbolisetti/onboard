@@ -64,26 +64,11 @@ export function useOpenInvoices() {
     }
   }
 
-  const removeMany = async (ids: string[]) => {
-    if (ids.length === 0) return
-
-    const idSet = new Set(ids)
-    const previous = invoices
-    setInvoices((prev) => prev.filter((item) => !idSet.has(item.id)))
-
-    try {
-      await Promise.all(ids.map((id) => deleteOpenInvoice(id)))
-    } catch (err) {
-      setInvoices(previous)
-      throw err
-    }
-  }
-
   const importMany = async (inputs: CreateOpenInvoiceInput[]) => {
     const created = await createOpenInvoicesBulk(inputs)
     setInvoices((prev) => [...created, ...prev])
     return created
   }
 
-  return { invoices, loading, error, reload: load, add, update, remove, removeMany, importMany }
+  return { invoices, loading, error, reload: load, add, update, remove, importMany }
 }

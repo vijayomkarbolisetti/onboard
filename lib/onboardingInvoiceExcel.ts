@@ -1,5 +1,6 @@
-import * as XLSX from 'xlsx'
+import * as XLSX from 'xlsx-js-style'
 import {
+  applyBoldHeaderRow,
   autoFitWorksheetColumns,
   cellDisplayValue,
   formatExportDate,
@@ -274,6 +275,7 @@ export function exportOnboardingInvoicesExcel(records: OnboardingInvoiceRecord[]
       : XLSX.utils.aoa_to_sheet([[...ONBOARDING_INVOICE_HEADERS]])
 
   autoFitWorksheetColumns(worksheet, { maxWidth: 70 })
+  applyBoldHeaderRow(worksheet)
 
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Onboarding & Invoices')
@@ -285,6 +287,7 @@ export function exportOnboardingInvoicesExcel(records: OnboardingInvoiceRecord[]
 export function downloadOnboardingInvoiceTemplate() {
   const worksheet = XLSX.utils.aoa_to_sheet([[...ONBOARDING_INVOICE_HEADERS]])
   autoFitWorksheetColumns(worksheet, { maxWidth: 70 })
+  applyBoldHeaderRow(worksheet)
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Template')
   XLSX.writeFile(workbook, 'onboarding-invoices-template.xlsx')

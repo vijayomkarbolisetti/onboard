@@ -1,11 +1,8 @@
 'use client'
 
 import { ClipboardList, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
-import { BulkDeleteBar, BulkSelectCheckbox } from '@/components/BulkDeleteBar'
+import { useRef, useState } from 'react'
 import { OnboardingInvoiceFormModal } from '@/components/OnboardingInvoiceFormModal'
-import { useBulkDeleteConfirm } from '@/hooks/useBulkDeleteConfirm'
-import { useBulkSelection } from '@/hooks/useBulkSelection'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import {
   exportOnboardingInvoicesExcel,
@@ -24,7 +21,6 @@ interface OnboardingInvoicesProps {
   onCreate: (input: CreateOnboardingInvoiceInput) => Promise<void>
   onUpdate: (id: string, input: CreateOnboardingInvoiceInput) => Promise<void>
   onDelete: (id: string) => Promise<void>
-  onDeleteMany: (ids: string[]) => Promise<void>
   onImport: (inputs: CreateOnboardingInvoiceInput[]) => Promise<void>
 }
 
@@ -64,28 +60,16 @@ export function OnboardingInvoices({
   onCreate,
   onUpdate,
   onDelete,
-  onDeleteMany,
   onImport,
 }: OnboardingInvoicesProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<OnboardingInvoiceRecord | null>(null)
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const itemIds = useMemo(() => records.map((record) => record.id), [records])
-  const bulk = useBulkSelection(itemIds)
   const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
     onConfirm: onDelete,
     successMessage: 'Record deleted',
     errorMessage: 'Failed to delete record',
-  })
-  const { openBulkDeleteConfirm, bulkDeleteModal } = useBulkDeleteConfirm({
-    onConfirm: async (ids) => {
-      await onDeleteMany(ids)
-      bulk.clear()
-    },
-    itemLabel: 'records',
-    successMessage: 'Selected records deleted',
-    errorMessage: 'Failed to delete selected records',
   })
 
   const handleExport = () => {
@@ -121,16 +105,7 @@ export function OnboardingInvoices({
   }
 
   const actionToolbar = (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <BulkDeleteBar
-        selectedCount={bulk.selectedCount}
-        totalCount={records.length}
-        allSelected={bulk.allSelected}
-        onToggleAll={bulk.toggleAll}
-        onDeleteSelected={() => openBulkDeleteConfirm(bulk.selectedList)}
-        itemLabel="records"
-      />
-      <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-2">
       <button
         type="button"
         onClick={handleImportClick}
@@ -155,7 +130,6 @@ export function OnboardingInvoices({
         <Plus size={16} />
         Add Record
       </button>
-      </div>
     </div>
   )
 
@@ -178,13 +152,6 @@ export function OnboardingInvoices({
       <table className="wyra-data-table w-full min-w-[1400px] text-left text-sm">
         <thead className="bg-theme-elevated text-xs uppercase tracking-wider text-theme-muted">
           <tr>
-            <th className="w-10 whitespace-nowrap px-4 py-3 font-semibold">
-              <BulkSelectCheckbox
-                checked={bulk.allSelected}
-                onChange={bulk.toggleAll}
-                ariaLabel="Select all records"
-              />
-            </th>
             {columns.map((col) => (
               <th key={col.key} className="whitespace-nowrap px-4 py-3 font-semibold">
                 {col.label}
@@ -195,13 +162,6 @@ export function OnboardingInvoices({
         <tbody>
           {records.map((record) => (
             <tr key={record.id} className="transition hover:bg-theme-hover">
-              <td className="whitespace-nowrap px-4 py-3">
-                <BulkSelectCheckbox
-                  checked={bulk.isSelected(record.id)}
-                  onChange={() => bulk.toggle(record.id)}
-                  ariaLabel={`Select ${record.companyName || 'record'}`}
-                />
-              </td>
               {columns.map((col) => {
                 if (col.key === 'actions') {
                   return (
@@ -287,7 +247,6 @@ export function OnboardingInvoices({
       />
 
       {deleteModal}
-      {bulkDeleteModal}
     </div>
   )
 }
