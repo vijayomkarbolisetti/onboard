@@ -124,12 +124,18 @@ function cellValue(
   return val === 0 ? '0' : String(val || '—')
 }
 
+function isDetailColumn(
+  col: { key: keyof OnboardingInvoiceRecord | 'actions' | 'sNo'; label: string },
+): col is { key: keyof OnboardingInvoiceRecord; label: string } {
+  return col.key !== 'actions' && col.key !== 'sNo'
+}
+
 function buildOnboardingInvoiceDetailFields(
   record: OnboardingInvoiceRecord,
   index: number,
 ): DetailField[] {
   return columns
-    .filter((col) => col.key !== 'actions' && col.key !== 'sNo')
+    .filter(isDetailColumn)
     .map((col) => ({
       label: col.label,
       value:
@@ -300,20 +306,22 @@ export function OnboardingInvoices({
                     </td>
                   )
                 }
+
+                const columnKey = col.key
                 return (
                   <td
-                    key={col.key}
+                    key={columnKey}
                     className={cn(
                       'px-4 py-3',
-                      col.key === 'subscriptionSummary' || col.key === 'agreementDocumentLink'
+                      columnKey === 'subscriptionSummary' || columnKey === 'agreementDocumentLink'
                         ? 'max-w-[220px]'
                         : 'whitespace-nowrap',
-                      col.key === 'companyName'
+                      columnKey === 'companyName'
                         ? 'font-semibold text-theme-fg'
                         : 'text-theme-body',
                     )}
                   >
-                    {cellValue(record, col.key, index)}
+                    {cellValue(record, columnKey, index)}
                   </td>
                 )
               })}
