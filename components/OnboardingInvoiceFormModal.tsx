@@ -19,6 +19,8 @@ interface OnboardingInvoiceFormModalProps {
 
 const emptyForm = {
   companyName: '',
+  subscriptionSummary: '',
+  agreementDocumentLink: '',
   saasMspAgreement: '' as SaasMspAgreement | '',
   sponsor: '',
   partnerProgram: '',
@@ -30,6 +32,8 @@ const emptyForm = {
   invoiceCycle: '',
   invoicesGenerated: 0,
   invoicesPaid: 0,
+  totalAmountPaid: 0,
+  pendingAmount: 0,
   nextInvoiceStatus: '',
 }
 
@@ -54,6 +58,8 @@ export function OnboardingInvoiceFormModal({
     if (isEdit && initial) {
       setForm({
         companyName: initial.companyName,
+        subscriptionSummary: initial.subscriptionSummary ?? '',
+        agreementDocumentLink: initial.agreementDocumentLink ?? '',
         saasMspAgreement: initial.saasMspAgreement,
         sponsor: initial.sponsor,
         partnerProgram: initial.partnerProgram,
@@ -63,9 +69,11 @@ export function OnboardingInvoiceFormModal({
         invoiceAmount: initial.invoiceAmount,
         firstInvoiceDate: initial.firstInvoiceDate,
         invoiceCycle: initial.invoiceCycle,
-        invoicesGenerated: initial.invoicesGenerated,
-        invoicesPaid: initial.invoicesPaid,
-        nextInvoiceStatus: initial.nextInvoiceStatus,
+        invoicesGenerated: initial.invoicesGenerated ?? 0,
+        invoicesPaid: initial.invoicesPaid ?? 0,
+        totalAmountPaid: initial.totalAmountPaid ?? 0,
+        pendingAmount: initial.pendingAmount ?? 0,
+        nextInvoiceStatus: initial.nextInvoiceStatus ?? '',
       })
     } else {
       setForm(emptyForm)
@@ -82,6 +90,8 @@ export function OnboardingInvoiceFormModal({
       await onSubmit({
         ...form,
         companyName: form.companyName.trim(),
+        subscriptionSummary: form.subscriptionSummary.trim(),
+        agreementDocumentLink: form.agreementDocumentLink.trim(),
         saasMspAgreement: form.saasMspAgreement as SaasMspAgreement,
         sponsor: form.sponsor.trim(),
         partnerProgram: form.partnerProgram.trim(),
@@ -144,6 +154,26 @@ export function OnboardingInvoiceFormModal({
                 value={form.companyName}
                 onChange={(e) => set('companyName', e.target.value)}
                 placeholder="Company name"
+              />
+            </Field>
+
+            <Field label="Subscription Summary" className="sm:col-span-2">
+              <textarea
+                className="wyra-input resize-none"
+                value={form.subscriptionSummary}
+                onChange={(e) => set('subscriptionSummary', e.target.value)}
+                placeholder="Enter subscription plan, billing cycle, or package details..."
+                rows={3}
+              />
+            </Field>
+
+            <Field label="Agreement Document Link" className="sm:col-span-2">
+              <input
+                type="url"
+                className="wyra-input"
+                value={form.agreementDocumentLink}
+                onChange={(e) => set('agreementDocumentLink', e.target.value)}
+                placeholder="https://..."
               />
             </Field>
 
@@ -250,17 +280,43 @@ export function OnboardingInvoiceFormModal({
               />
             </Field>
 
-            <Field label="No. of Invoices Paid">
-              <input
-                type="number"
-                min="0"
-                className="wyra-input"
-                value={form.invoicesPaid || ''}
-                onChange={(e) => set('invoicesPaid', Number(e.target.value))}
-              />
-            </Field>
+            <div className="grid gap-4 sm:col-span-2 sm:grid-cols-3">
+              <Field label="No. of Invoices Paid">
+                <input
+                  type="number"
+                  min="0"
+                  className="wyra-input"
+                  value={form.invoicesPaid || ''}
+                  onChange={(e) => set('invoicesPaid', Number(e.target.value))}
+                />
+              </Field>
 
-            <Field label="Next Invoice Status">
+              <Field label="Total Amount Paid (USD)">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="wyra-input"
+                  value={form.totalAmountPaid || ''}
+                  onChange={(e) => set('totalAmountPaid', Number(e.target.value))}
+                  placeholder="0.00"
+                />
+              </Field>
+
+              <Field label="Pending Amount (USD)">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="wyra-input"
+                  value={form.pendingAmount || ''}
+                  onChange={(e) => set('pendingAmount', Number(e.target.value))}
+                  placeholder="0.00"
+                />
+              </Field>
+            </div>
+
+            <Field label="Next Invoice Status" className="sm:col-span-2">
               <input
                 type="text"
                 className="wyra-input"

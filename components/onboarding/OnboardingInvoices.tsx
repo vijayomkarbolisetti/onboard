@@ -37,6 +37,8 @@ const columns: { key: keyof OnboardingInvoiceRecord | 'actions'; label: string }
   { key: 'invoiceCycle', label: 'Invoice Cycle' },
   { key: 'invoicesGenerated', label: 'No. Invoices Generated' },
   { key: 'invoicesPaid', label: 'No. Invoices Paid' },
+  { key: 'totalAmountPaid', label: 'Total Amount Paid' },
+  { key: 'pendingAmount', label: 'Pending Amount' },
   { key: 'nextInvoiceStatus', label: 'Next Invoice Status' },
   { key: 'actions', label: 'Actions' },
 ]
@@ -46,7 +48,7 @@ function cellValue(record: OnboardingInvoiceRecord, key: keyof OnboardingInvoice
   if (key === 'onBoardDate' || key === 'firstInvoiceDate') {
     return formatDate(String(val))
   }
-  if (key === 'invoiceAmount') {
+  if (key === 'invoiceAmount' || key === 'totalAmountPaid' || key === 'pendingAmount') {
     return formatCurrency(Number(val))
   }
   return val === 0 ? '0' : String(val || '—')

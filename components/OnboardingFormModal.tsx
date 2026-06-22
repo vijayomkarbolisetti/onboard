@@ -16,12 +16,13 @@ interface OnboardingFormModalProps {
 
 const emptyForm: CreateOnboardingInput = {
   organization: '',
-  subscriptionSummary: '',
-  agreementDocumentLink: '',
+  noOfAiSdrs: 0,
   onboardingDate: '',
   endDate: '',
   campaignLaunchDate: '',
+  noOfCampaigns: 0,
   targetedLeads: 0,
+  contactedLeads: 0,
   interestedLeads: 0,
   totalReplies: 0,
   status: '',
@@ -30,18 +31,33 @@ const emptyForm: CreateOnboardingInput = {
 
 function toFormValues(record: Onboarding): CreateOnboardingInput {
   return {
+    ...emptyForm,
     organization: record.organization ?? '',
-    subscriptionSummary: record.subscriptionSummary ?? '',
-    agreementDocumentLink: record.agreementDocumentLink ?? '',
+    noOfAiSdrs: record.noOfAiSdrs ?? 0,
     onboardingDate: record.onboardingDate ?? '',
     endDate: record.endDate ?? '',
     campaignLaunchDate: record.campaignLaunchDate ?? '',
+    noOfCampaigns: record.noOfCampaigns ?? 0,
     targetedLeads: record.targetedLeads ?? 0,
+    contactedLeads: record.contactedLeads ?? 0,
     interestedLeads: record.interestedLeads ?? 0,
     totalReplies: record.totalReplies ?? 0,
     status: record.status ?? '',
     remark: record.remark ?? '',
   }
+}
+
+const leadMetricFields = [
+  ['targetedLeads', 'Targeted Leads'],
+  ['contactedLeads', 'Contacted Leads'],
+  ['interestedLeads', 'Interested Leads'],
+  ['totalReplies', 'Total Replies'],
+] as const satisfies ReadonlyArray<
+  readonly [keyof Pick<CreateOnboardingInput, 'targetedLeads' | 'contactedLeads' | 'interestedLeads' | 'totalReplies'>, string]
+>
+
+function formNumber(value: number | null | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 
 export function OnboardingFormModal({
@@ -51,11 +67,12 @@ export function OnboardingFormModal({
   onClose,
   onSubmit,
 }: OnboardingFormModalProps) {
-  const [form, setForm] = useState<CreateOnboardingInput>(emptyForm)
+  const isEdit = mode === 'edit'
+  const [form, setForm] = useState<CreateOnboardingInput>(() =>
+    open && mode === 'edit' && initial ? toFormValues(initial) : emptyForm,
+  )
   const [submitting, setSubmitting] = useState(false)
   const [mounted, setMounted] = useState(false)
-
-  const isEdit = mode === 'edit'
 
   useEffect(() => {
     setMounted(true)
@@ -81,7 +98,10 @@ export function OnboardingFormModal({
 
   const setNumberField = (key: keyof CreateOnboardingInput, value: string) => {
     const parsed = value === '' ? 0 : Number(value)
-    setForm({ ...form, [key]: Number.isNaN(parsed) ? 0 : Math.max(0, parsed) })
+    setForm((prev) => ({
+      ...prev,
+      [key]: Number.isNaN(parsed) ? 0 : Math.max(0, parsed),
+    }))
   }
 
   const handleClose = () => {
@@ -97,12 +117,13 @@ export function OnboardingFormModal({
     try {
       await onSubmit({
         organization: form.organization.trim(),
-        subscriptionSummary: form.subscriptionSummary.trim(),
-        agreementDocumentLink: form.agreementDocumentLink.trim(),
+        noOfAiSdrs: form.noOfAiSdrs,
         onboardingDate: form.onboardingDate,
         endDate: form.endDate,
         campaignLaunchDate: form.campaignLaunchDate,
+        noOfCampaigns: form.noOfCampaigns,
         targetedLeads: form.targetedLeads,
+        contactedLeads: form.contactedLeads,
         interestedLeads: form.interestedLeads,
         totalReplies: form.totalReplies,
         status: form.status.trim(),
@@ -168,23 +189,13 @@ export function OnboardingFormModal({
             </label>
 
             <label className="block space-y-2">
-              <span className="wyra-label">Subscription Summary</span>
-              <textarea
-                value={form.subscriptionSummary}
-                onChange={(e) => setForm({ ...form, subscriptionSummary: e.target.value })}
-                placeholder="Enter subscription plan, billing cycle, or package details..."
-                rows={3}
-                className="wyra-input resize-none"
-              />
-            </label>
-
-            <label className="block space-y-2">
-              <span className="wyra-label">Agreement Document Link</span>
+              <span className="wyra-label">No.of AI SDRs</span>
               <input
-                type="url"
-                value={form.agreementDocumentLink}
-                onChange={(e) => setForm({ ...form, agreementDocumentLink: e.target.value })}
-                placeholder="https://..."
+                type="number"
+                min={0}
+                value={formNumber(form.noOfAiSdrs)}
+                onChange={(e) => setNumberField('noOfAiSdrs', e.target.value)}
+                placeholder="0"
                 className="wyra-input"
               />
             </label>
@@ -212,11 +223,23 @@ export function OnboardingFormModal({
             </div>
 
             <label className="block space-y-2">
-              <span className="wyra-label">Campaign Launch Date</span>
+              <span className="wyra-label">1st campaign Launch date</span>
               <input
                 type="date"
                 value={form.campaignLaunchDate}
                 onChange={(e) => setForm({ ...form, campaignLaunchDate: e.target.value })}
+                className="wyra-input"
+              />
+            </label>
+
+            <label className="block space-y-2">
+              <span className="wyra-label">no.of campaigns</span>
+              <input
+                type="number"
+                min={0}
+                value={formNumber(form.noOfCampaigns)}
+                onChange={(e) => setNumberField('noOfCampaigns', e.target.value)}
+                placeholder="0"
                 className="wyra-input"
               />
             </label>
@@ -226,20 +249,14 @@ export function OnboardingFormModal({
                 Lead metrics
               </legend>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                {(
-                  [
-                    ['targetedLeads', 'Targeted Leads'],
-                    ['interestedLeads', 'Interested Leads'],
-                    ['totalReplies', 'Total Replies'],
-                  ] as const
-                ).map(([key, label]) => (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {leadMetricFields.map(([key, label]) => (
                   <label key={key} className="flex min-w-0 flex-col gap-2">
                     <span className="wyra-label text-sm leading-snug">{label}</span>
                     <input
                       type="number"
                       min={0}
-                      value={form[key]}
+                      value={formNumber(form[key])}
                       onChange={(e) => setNumberField(key, e.target.value)}
                       placeholder="0"
                       className="wyra-input"
