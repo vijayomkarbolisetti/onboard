@@ -35,6 +35,11 @@
   --theme-btn-text: #000000;
   --theme-overlay: rgba(0, 0, 0, 0.65);
   --theme-date-filter: invert(0.7);
+  --theme-scrollbar-track: #141b2d;
+  --theme-scrollbar-thumb: rgba(31, 204, 154, 0.42);
+  --theme-scrollbar-thumb-hover: rgba(31, 204, 154, 0.62);
+  --theme-scrollbar-thumb-active: #1fcc9a;
+  --theme-scrollbar-size: 10px;
 }
 
 /* ── Light theme ── */
@@ -62,6 +67,11 @@ html.light {
   --theme-btn-text: #ffffff;
   --theme-overlay: rgba(36, 31, 91, 0.35);
   --theme-date-filter: none;
+  --theme-scrollbar-track: #e8e6f0;
+  --theme-scrollbar-thumb: rgba(23, 168, 127, 0.45);
+  --theme-scrollbar-thumb-hover: rgba(23, 168, 127, 0.65);
+  --theme-scrollbar-thumb-active: #17a87f;
+  --theme-scrollbar-size: 10px;
 }
 
 * {
@@ -214,6 +224,22 @@ html.light ::selection {
     background-color: var(--theme-modal);
     box-shadow: var(--theme-modal-shadow);
   }
+
+  .wyra-dropdown-panel {
+    overflow: hidden;
+    border-radius: 0.75rem;
+    border: 1px solid var(--theme-border);
+    background-color: var(--theme-modal);
+    box-shadow: var(--theme-modal-shadow);
+  }
+
+  .wyra-dropdown-menu {
+    max-height: 15rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
 }
 
 input[type='date']::-webkit-calendar-picker-indicator {
@@ -284,6 +310,53 @@ select:disabled {
 
 .wyra-data-table tbody tr + tr td {
   box-shadow: inset 0 1px 0 0 var(--theme-table-divider);
+}
+
+/* ── Global scrollbars (vertical + horizontal) ── */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-scrollbar-thumb) var(--theme-scrollbar-track);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-scrollbar-thumb) var(--theme-scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: var(--theme-scrollbar-size);
+  height: var(--theme-scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--theme-scrollbar-track);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, #a5c626 88%, var(--theme-scrollbar-thumb)),
+    var(--theme-scrollbar-thumb-active)
+  );
+  border-radius: 999px;
+  border: 2px solid var(--theme-scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    135deg,
+    #a5c626,
+    var(--theme-scrollbar-thumb-hover)
+  );
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: var(--theme-scrollbar-thumb-active);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--theme-scrollbar-track);
 }
 
 /* Hide Clerk branding footers in any remaining modals */

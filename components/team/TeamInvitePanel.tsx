@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { WyraSelect } from '@/components/CompanyNameSelect'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import { notify } from '@/lib/toast'
 import { cn } from '@/lib/utils'
@@ -317,16 +318,19 @@ export function TeamInvitePanel() {
 
               <label className="block">
                 <span className="wyra-label">Role</span>
-                <select
+                <WyraSelect
+                  className="mt-2"
                   value={inviteRole}
-                  onChange={(e) =>
-                    setInviteRole(e.target.value as 'org:member' | 'org:admin')
+                  onChange={(value) =>
+                    setInviteRole(value as 'org:member' | 'org:admin')
                   }
-                  className="wyra-input mt-2 w-full min-w-[140px]"
-                >
-                  <option value="org:member">Member</option>
-                  <option value="org:admin">Admin</option>
-                </select>
+                  allowEmpty={false}
+                  placeholder="Role"
+                  options={[
+                    { value: 'org:member', label: 'Member' },
+                    { value: 'org:admin', label: 'Admin' },
+                  ]}
+                />
               </label>
 
               <div className="flex items-end">

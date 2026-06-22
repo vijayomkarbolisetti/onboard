@@ -16,10 +16,12 @@ type OrgRecord = {
   organizationId?: string
 }
 
-function sortByCreatedAt<T extends { createdAt: string }>(items: T[]) {
-  return [...items].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  )
+function sortRecordsByOrder<T extends { createdAt: string; id?: string }>(items: T[]) {
+  return [...items].sort((a, b) => {
+    const timeDiff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    if (timeDiff !== 0) return timeDiff
+    return (a.id ?? '').localeCompare(b.id ?? '')
+  })
 }
 
 function belongsToOrganization<T extends OrgRecord>(item: T, organizationId: string) {
@@ -51,7 +53,7 @@ export function createOrgFirestoreStore<T extends OrgRecord>(
           }) as T,
       )
 
-      return sortByCreatedAt(items.filter((item) => belongsToOrganization(item, organizationId)))
+      return sortRecordsByOrder(items.filter((item) => belongsToOrganization(item, organizationId)))
     },
 
     async create(
@@ -78,7 +80,7 @@ export function createOrgFirestoreStore<T extends OrgRecord>(
       }
 
       const firestore = requireFirestore()
-      const createdAt = new Date().toISOString()
+      const baseTime = Date.now()
       const created: T[] = []
       const batchSize = 400
 
@@ -86,12 +88,12 @@ export function createOrgFirestoreStore<T extends OrgRecord>(
         const chunk = inputs.slice(offset, offset + batchSize)
         const batch = writeBatch(firestore)
 
-        chunk.forEach((input) => {
+        chunk.forEach((input, index) => {
           const ref = doc(collection(firestore, collectionName))
           const record = {
             ...input,
             organizationId,
-            createdAt,
+            createdAt: new Date(baseTime + offset + index).toISOString(),
           }
           batch.set(ref, record)
           created.push({ id: ref.id, ...record } as T)

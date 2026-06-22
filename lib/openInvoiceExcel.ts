@@ -7,10 +7,12 @@ import {
   parseExcelSheet,
   parseNumber,
   writeExcelFile,
+  downloadExcelTemplate,
 } from '@/lib/excelUtils'
-import { resolveInvoiceNumber } from '@/utils/format'
+import { formatCompanyNames, resolveInvoiceNumber } from '@/utils/format'
 
 export const OPEN_INVOICE_HEADERS = [
+  'S.No',
   'Invoice Date',
   'Customer Name',
   'Company Name',
@@ -128,10 +130,11 @@ export async function parseOpenInvoicesExcel(file: File) {
 }
 
 export function exportOpenInvoicesExcel(invoices: OpenInvoice[]) {
-  const rows = invoices.map((invoice) => ({
+  const rows = invoices.map((invoice, index) => ({
+    'S.No': index + 1,
     'Invoice Date': formatExportDate(invoice.invoiceDate),
     'Customer Name': invoice.customerName ?? '',
-    'Company Name': invoice.companyName ?? '',
+    'Company Name': formatCompanyNames(invoice.companyName),
     'Invoice Number': resolveInvoiceNumber(invoice as unknown as Record<string, unknown>),
     'Invoice Amount': invoice.invoiceAmount ?? 0,
     Status: invoice.status ?? '',
@@ -140,4 +143,8 @@ export function exportOpenInvoicesExcel(invoices: OpenInvoice[]) {
 
   const timestamp = new Date().toISOString().slice(0, 10)
   writeExcelFile('Open Invoices', OPEN_INVOICE_HEADERS, rows, `open-invoices-${timestamp}.xlsx`)
+}
+
+export function downloadOpenInvoiceTemplate() {
+  downloadExcelTemplate('Open Invoices', OPEN_INVOICE_HEADERS, 'open-invoices-sample.xlsx')
 }

@@ -1,11 +1,12 @@
 import type { CreateExpenseInput, Expense } from '@/types'
-import { formatDate } from '@/utils/format'
 import {
+  formatExportDate,
   formatTextCellValue,
   parseExcelDate,
   parseExcelSheet,
   parseNumber,
   writeExcelFile,
+  downloadExcelTemplate,
 } from '@/lib/excelUtils'
 
 export const EXPENSE_HEADERS = [
@@ -115,7 +116,7 @@ export function exportExpensesExcel(expenses: Expense[]) {
   const rows = expenses.map((expense, index) => ({
     NO: index + 1,
     'Tool Name': expense.toolName ?? '',
-    'Invoice Date': expense.invoiceDate ? formatDate(expense.invoiceDate) : '',
+    'Invoice Date': formatExportDate(expense.invoiceDate),
     'Card Used': expense.cardUsed ?? '',
     'Card Owner': expense.cardOwner ?? '',
     Amount: expense.amount ?? 0,
@@ -124,4 +125,8 @@ export function exportExpensesExcel(expenses: Expense[]) {
 
   const timestamp = new Date().toISOString().slice(0, 10)
   writeExcelFile('Expenses', EXPENSE_HEADERS, rows, `expenses-${timestamp}.xlsx`)
+}
+
+export function downloadExpenseTemplate() {
+  downloadExcelTemplate('Expenses', EXPENSE_HEADERS, 'expenses-sample.xlsx')
 }

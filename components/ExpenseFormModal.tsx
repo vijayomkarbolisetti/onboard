@@ -1,9 +1,11 @@
 'use client'
 
+import { WyraSelect } from '@/components/CompanyNameSelect'
 import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { notify } from '@/lib/toast'
 import type { CreateExpenseInput, Expense } from '@/types'
+import { numberFieldDisplay, parseDecimalField, toNumber, type NumberFieldValue } from '@/utils/format'
 
 interface ExpenseFormModalProps {
   open: boolean
@@ -13,14 +15,16 @@ interface ExpenseFormModalProps {
   onSubmit: (input: CreateExpenseInput) => Promise<void>
 }
 
-const emptyForm: CreateExpenseInput = {
+const emptyForm = {
   toolName: '',
   invoiceDate: '',
   cardUsed: '',
   cardOwner: '',
-  amount: 0,
+  amount: '' as NumberFieldValue,
   currency: 'USD',
 }
+
+type ExpenseFormState = typeof emptyForm
 
 const currencyOptions = ['USD', 'EUR', 'GBP', 'INR', 'AUD', 'CAD']
 
@@ -31,7 +35,7 @@ export function ExpenseFormModal({
   onClose,
   onSubmit,
 }: ExpenseFormModalProps) {
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState<ExpenseFormState>(emptyForm)
   const [submitting, setSubmitting] = useState(false)
   const isEdit = mode === 'edit'
 
@@ -43,7 +47,7 @@ export function ExpenseFormModal({
         invoiceDate: initial.invoiceDate,
         cardUsed: initial.cardUsed,
         cardOwner: initial.cardOwner,
-        amount: initial.amount,
+        amount: initial.amount ?? '',
         currency: initial.currency,
       })
     } else {
@@ -63,7 +67,7 @@ export function ExpenseFormModal({
         invoiceDate: form.invoiceDate,
         cardUsed: form.cardUsed.trim(),
         cardOwner: form.cardOwner.trim(),
-        amount: form.amount,
+        amount: toNumber(form.amount),
         currency: form.currency.trim() || 'USD',
       })
       notify.success(isEdit ? 'Expense updated' : 'Expense added')
@@ -82,7 +86,7 @@ export function ExpenseFormModal({
     onClose()
   }
 
-  const set = (key: keyof CreateExpenseInput, value: string | number) => {
+  const set = (key: keyof ExpenseFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -156,24 +160,22 @@ export function ExpenseFormModal({
                 min="0"
                 step="0.01"
                 className="wyra-input"
-                value={form.amount || ''}
-                onChange={(e) => set('amount', Number(e.target.value))}
+                value={numberFieldDisplay(form.amount)}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, amount: parseDecimalField(e.target.value) }))
+                }
                 placeholder="0.00"
               />
             </Field>
 
             <Field label="Currency">
-              <select
-                className="wyra-input"
+              <WyraSelect
                 value={form.currency}
-                onChange={(e) => set('currency', e.target.value)}
-              >
-                {currencyOptions.map((code) => (
-                  <option key={code} value={code}>
-                    {code}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => set('currency', value)}
+                allowEmpty={false}
+                placeholder="Currency"
+                options={currencyOptions.map((code) => ({ value: code, label: code }))}
+              />
             </Field>
           </div>
 

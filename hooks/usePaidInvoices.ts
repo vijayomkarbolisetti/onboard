@@ -36,7 +36,7 @@ export function usePaidInvoices() {
 
   const add = async (input: CreatePaidInvoiceInput) => {
     const created = await createPaidInvoice(input)
-    setInvoices((prev) => [created, ...prev])
+    setInvoices((prev) => [...prev, created])
     return created
   }
 
@@ -65,9 +65,10 @@ export function usePaidInvoices() {
   }
 
   const importMany = async (inputs: CreatePaidInvoiceInput[]) => {
-    const created = await createPaidInvoicesBulk(inputs)
-    setInvoices((prev) => [...created, ...prev])
-    return created
+    if (inputs.length === 0) return []
+    await createPaidInvoicesBulk(inputs)
+    await load()
+    return inputs.length
   }
 
   return { invoices, loading, error, reload: load, add, update, remove, importMany }

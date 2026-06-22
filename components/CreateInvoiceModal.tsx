@@ -1,10 +1,11 @@
 'use client'
 
+import { WyraSelect } from '@/components/CompanyNameSelect'
 import { Plus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { notify } from '@/lib/toast'
 import type { CreateInvoiceInput, Onboarding } from '@/types'
-import { formatDate } from '@/utils/format'
+import { formatDate, numberFieldDisplay, parseDecimalField, toNumber, type NumberFieldValue } from '@/utils/format'
 
 interface CreateInvoiceModalProps {
   open: boolean
@@ -13,16 +14,18 @@ interface CreateInvoiceModalProps {
   onSubmit: (input: CreateInvoiceInput) => Promise<void>
 }
 
-const emptyForm: CreateInvoiceInput = {
+const emptyForm = {
   onboardingId: '',
   organization: '',
   invoiceNumber: '',
-  amount: 0,
-  status: 'pending',
+  amount: '' as NumberFieldValue,
+  status: 'pending' as CreateInvoiceInput['status'],
   dueDate: '',
   issuedDate: '',
   description: '',
 }
+
+type CreateInvoiceFormState = typeof emptyForm
 
 export function CreateInvoiceModal({
   open,
@@ -30,7 +33,7 @@ export function CreateInvoiceModal({
   onClose,
   onSubmit,
 }: CreateInvoiceModalProps) {
-  const [form, setForm] = useState<CreateInvoiceInput>(emptyForm)
+  const [form, setForm] = useState<CreateInvoiceFormState>(emptyForm)
   const [submitting, setSubmitting] = useState(false)
 
   if (!open) return null
@@ -55,8 +58,13 @@ export function CreateInvoiceModal({
     setSubmitting(true)
     try {
       await onSubmit({
-        ...form,
+        onboardingId: form.onboardingId,
+        organization: form.organization,
         invoiceNumber: form.invoiceNumber.trim(),
+        amount: toNumber(form.amount),
+        status: form.status,
+        dueDate: form.dueDate,
+        issuedDate: form.issuedDate,
         description: form.description.trim(),
       })
       notify.success('Invoice created')
@@ -102,18 +110,15 @@ export function CreateInvoiceModal({
         <form onSubmit={handleSubmit} className="space-y-5 p-6">
           <label className="block space-y-2">
             <span className="wyra-label">Onboarding</span>
-            <select
+            <WyraSelect
               value={form.onboardingId}
-              onChange={(e) => handleOnboardingChange(e.target.value)}
-              className="wyra-input"
-            >
-              <option value="">Select organization</option>
-              {onboardings.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {onboardingLabel(item)}
-                </option>
-              ))}
-            </select>
+              onChange={handleOnboardingChange}
+              placeholder="Select organization"
+              options={onboardings.map((item) => ({
+                value: item.id,
+                label: onboardingLabel(item),
+              }))}
+            />
           </label>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -134,9 +139,9 @@ export function CreateInvoiceModal({
                 type="number"
                 min="0"
                 step="0.01"
-                value={form.amount || ''}
+                value={numberFieldDisplay(form.amount)}
                 onChange={(e) =>
-                  setForm({ ...form, amount: Number(e.target.value) })
+                  setForm({ ...form, amount: parseDecimalField(e.target.value) })
                 }
                 placeholder="0.00"
                 className="wyra-input"

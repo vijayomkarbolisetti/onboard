@@ -36,7 +36,7 @@ export function useExpenses() {
 
   const add = async (input: CreateExpenseInput) => {
     const created = await createExpense(input)
-    setExpenses((prev) => [created, ...prev])
+    setExpenses((prev) => [...prev, created])
     return created
   }
 

@@ -36,7 +36,7 @@ export function useOpenInvoices() {
 
   const add = async (input: CreateOpenInvoiceInput) => {
     const created = await createOpenInvoice(input)
-    setInvoices((prev) => [created, ...prev])
+    setInvoices((prev) => [...prev, created])
     return created
   }
 
@@ -65,9 +65,10 @@ export function useOpenInvoices() {
   }
 
   const importMany = async (inputs: CreateOpenInvoiceInput[]) => {
-    const created = await createOpenInvoicesBulk(inputs)
-    setInvoices((prev) => [...created, ...prev])
-    return created
+    if (inputs.length === 0) return []
+    await createOpenInvoicesBulk(inputs)
+    await load()
+    return inputs.length
   }
 
   return { invoices, loading, error, reload: load, add, update, remove, importMany }

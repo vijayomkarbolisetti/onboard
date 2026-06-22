@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createOrgFirestoreStore } from '@/lib/orgFirestore'
+import { normalizeOnboardingInvoiceRecord } from '@/lib/onboardingInvoiceExcel'
 import { isTeamAuthContext, requireTeamAuth } from '@/lib/team-auth'
 import type { CreateOnboardingInvoiceInput, OnboardingInvoiceRecord } from '@/types'
 
@@ -12,7 +13,7 @@ export async function GET() {
   }
 
   try {
-    const records = await store.list(authResult.orgId)
+    const records = (await store.list(authResult.orgId)).map(normalizeOnboardingInvoiceRecord)
     return NextResponse.json({ records })
   } catch (error) {
     const message =
@@ -33,11 +34,15 @@ export async function POST(request: Request) {
       | { records: CreateOnboardingInvoiceInput[] }
 
     if ('records' in body && Array.isArray(body.records)) {
-      const records = await store.createMany(authResult.orgId, body.records)
+      const records = (await store.createMany(authResult.orgId, body.records)).map(
+        normalizeOnboardingInvoiceRecord,
+      )
       return NextResponse.json({ records })
     }
 
-    const record = await store.create(authResult.orgId, body as CreateOnboardingInvoiceInput)
+    const record = normalizeOnboardingInvoiceRecord(
+      await store.create(authResult.orgId, body as CreateOnboardingInvoiceInput),
+    )
     return NextResponse.json({ record })
   } catch (error) {
     const message =

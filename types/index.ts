@@ -9,6 +9,8 @@ export interface Onboarding {
   noOfAiSdrs?: number
   onboardingDate: string
   endDate: string
+  committedAmount?: number
+  paidAmount?: number
   campaignLaunchDate: string
   noOfCampaigns?: number
   targetedLeads: number
@@ -61,6 +63,8 @@ export interface CreateOnboardingInput {
   noOfAiSdrs: number
   onboardingDate: string
   endDate: string
+  committedAmount?: number
+  paidAmount?: number
   campaignLaunchDate: string
   noOfCampaigns: number
   targetedLeads: number

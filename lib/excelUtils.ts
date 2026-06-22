@@ -45,6 +45,20 @@ export function normalizeHeader(value: unknown) {
     .trim()
 }
 
+/** Row index columns (S.No, NO, etc.) — skipped on import, generated on export. */
+export function isSerialColumn(header: string) {
+  const normalized = normalizeHeader(header)
+  return (
+    normalized === 's no' ||
+    normalized === 'sno' ||
+    normalized === 'no' ||
+    normalized === 'serial no' ||
+    normalized === 'serial number' ||
+    normalized === 'sr no' ||
+    normalized === '#'
+  )
+}
+
 export function cellDisplayValue(cell: XLSX.CellObject | undefined): unknown {
   if (!cell) return ''
   if (cell.w !== undefined && cell.w !== null && String(cell.w).trim() !== '') {
@@ -52,6 +66,16 @@ export function cellDisplayValue(cell: XLSX.CellObject | undefined): unknown {
   }
   if (cell.v !== undefined && cell.v !== null) return cell.v
   return ''
+}
+
+/** Prefer hyperlink URL from Excel cells (e.g. Agreement Document Link). */
+export function cellLinkValue(cell: XLSX.CellObject | undefined): unknown {
+  if (!cell) return ''
+  const target = cell.l?.Target
+  if (target !== undefined && target !== null && String(target).trim() !== '') {
+    return String(target).trim()
+  }
+  return cellDisplayValue(cell)
 }
 
 function normalizeYear(year: number): number {
@@ -531,6 +555,20 @@ export function writeExcelFile(
       : XLSX.utils.aoa_to_sheet([[...headers]])
 
   autoFitWorksheetColumns(worksheet)
+  applyBoldHeaderRow(worksheet)
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31))
+  XLSX.writeFile(workbook, filename)
+}
+
+export function downloadExcelTemplate(
+  sheetName: string,
+  headers: readonly string[],
+  filename: string,
+) {
+  const worksheet = XLSX.utils.aoa_to_sheet([[...headers]])
+  autoFitWorksheetColumns(worksheet, { maxWidth: 70 })
   applyBoldHeaderRow(worksheet)
 
   const workbook = XLSX.utils.book_new()
