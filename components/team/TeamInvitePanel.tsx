@@ -53,6 +53,7 @@ export function TeamInvitePanel() {
   const [organizationName, setOrganizationName] = useState('Wyra')
   const [canBootstrap, setCanBootstrap] = useState(false)
   const [isMember, setIsMember] = useState(false)
+  const [loadingOrganization, setLoadingOrganization] = useState(true)
   const [bootstrapping, setBootstrapping] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<'org:member' | 'org:admin'>('org:member')
@@ -65,6 +66,7 @@ export function TeamInvitePanel() {
   const isAdmin = membership?.role === 'org:admin'
 
   const loadOrganizationState = useCallback(async () => {
+    setLoadingOrganization(true)
     try {
       const response = await fetch('/api/team/organization')
       const payload = await response.json()
@@ -78,6 +80,8 @@ export function TeamInvitePanel() {
       setIsMember(Boolean(payload.membership))
     } catch (err) {
       notify.error(err instanceof Error ? err.message : 'Failed to load organization')
+    } finally {
+      setLoadingOrganization(false)
     }
   }, [])
 
@@ -251,10 +255,11 @@ export function TeamInvitePanel() {
       errorMessage: 'Failed to revoke invitation',
     })
 
-  if (!orgLoaded) {
+  if (!orgLoaded || loadingOrganization) {
     return (
-      <div className="content-shell flex items-center justify-center p-12">
+      <div className="content-shell flex flex-col items-center justify-center gap-3 p-12">
         <Loader2 className="animate-spin text-aqua" size={28} />
+        <p className="text-sm text-theme-muted">Loading team access...</p>
       </div>
     )
   }
