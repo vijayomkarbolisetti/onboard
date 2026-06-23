@@ -15,7 +15,7 @@ import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import type { CreateOnboardingInvoiceInput, OnboardingInvoiceRecord } from '@/types'
-import { formatCurrency, formatDate } from '@/utils/format'
+import { displayFieldValue, formatDate } from '@/utils/format'
 
 interface OnboardingInvoicesProps {
   records: OnboardingInvoiceRecord[]
@@ -114,7 +114,10 @@ function cellValue(
     return formatDate(String(val))
   }
   if (key === 'invoiceAmount' || key === 'totalAmountPaid' || key === 'pendingAmount') {
-    return formatCurrency(Number(val))
+    return displayFieldValue(val as string | number | undefined)
+  }
+  if (key === 'invoicesGenerated' || key === 'invoicesPaid') {
+    return displayFieldValue(val as string | number | undefined)
   }
   if (key === 'agreementDocumentLink') {
     return agreementLinkCell(typeof val === 'string' ? val : undefined)

@@ -7,12 +7,9 @@ import { notify } from '@/lib/toast'
 import type { CreatePaidInvoiceInput, PaidInvoice } from '@/types'
 import {
   formatCompanyNames,
-  numberFieldDisplay,
   parseCompanyNames,
-  parseDecimalField,
   resolveInvoiceNumber,
-  toNumber,
-  type NumberFieldValue,
+  toFormText,
 } from '@/utils/format'
 
 interface PaidInvoiceFormModalProps {
@@ -24,17 +21,18 @@ interface PaidInvoiceFormModalProps {
   onSubmit: (input: CreatePaidInvoiceInput) => Promise<void>
 }
 
-const emptyForm = {
+const emptyForm: CreatePaidInvoiceInput = {
   invoiceDate: '',
   customerName: '',
+  companyName: '',
   invoiceNumber: '',
-  invoiceAmount: '' as NumberFieldValue,
+  invoiceAmount: '',
   status: '',
   paymentDate: '',
   paymentMethod: '',
 }
 
-type PaidInvoiceFormState = typeof emptyForm
+type PaidInvoiceFormState = Omit<CreatePaidInvoiceInput, 'companyName'>
 
 export function PaidInvoiceFormModal({
   open,
@@ -56,7 +54,7 @@ export function PaidInvoiceFormModal({
         invoiceDate: initial.invoiceDate,
         customerName: initial.customerName,
         invoiceNumber: resolveInvoiceNumber(initial as unknown as Record<string, unknown>),
-        invoiceAmount: initial.invoiceAmount,
+        invoiceAmount: toFormText(initial.invoiceAmount),
         status: initial.status,
         paymentDate: initial.paymentDate,
         paymentMethod: initial.paymentMethod,
@@ -77,7 +75,7 @@ export function PaidInvoiceFormModal({
       invoiceDate: form.invoiceDate,
       customerName: form.customerName.trim(),
       invoiceNumber: form.invoiceNumber.trim(),
-      invoiceAmount: toNumber(form.invoiceAmount),
+      invoiceAmount: form.invoiceAmount.trim(),
       status: form.status.trim(),
       paymentDate: form.paymentDate,
       paymentMethod: form.paymentMethod.trim(),
@@ -191,18 +189,11 @@ export function PaidInvoiceFormModal({
 
             <Field label="Invoice Amount (USD)">
               <input
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 className="wyra-input"
-                value={numberFieldDisplay(form.invoiceAmount)}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    invoiceAmount: parseDecimalField(e.target.value),
-                  }))
-                }
-                placeholder="0.00"
+                value={form.invoiceAmount}
+                onChange={(e) => set('invoiceAmount', e.target.value)}
+                placeholder="Enter amount"
               />
             </Field>
 

@@ -4,7 +4,6 @@ import {
   formatTextCellValue,
   parseExcelDate,
   parseExcelSheet,
-  parseNumber,
   writeExcelFile,
   downloadExcelTemplate,
 } from '@/lib/excelUtils'
@@ -28,6 +27,11 @@ export const ONBOARDING_HEADERS = [
   'Status',
   'Remark',
 ] as const
+
+function exportText(value: string | number | undefined | null) {
+  if (value === null || value === undefined) return ''
+  return String(value)
+}
 
 const HEADER_TO_FIELD: Record<string, keyof CreateOnboardingInput> = {
   organization: 'organization',
@@ -112,19 +116,19 @@ function resolveField(header: string): keyof CreateOnboardingInput | null {
 function emptyRecord(): CreateOnboardingInput {
   return {
     organization: '',
-    committedMonths: 0,
+    committedMonths: '',
     agreementSignedDate: '',
-    noOfAiSdrs: 0,
+    noOfAiSdrs: '',
     onboardingDate: '',
     endDate: '',
-    committedAmount: 0,
-    paidAmount: 0,
+    committedAmount: '',
+    paidAmount: '',
     campaignLaunchDate: '',
-    noOfCampaigns: 0,
-    targetedLeads: 0,
-    contactedLeads: 0,
-    interestedLeads: 0,
-    totalReplies: 0,
+    noOfCampaigns: '',
+    targetedLeads: '',
+    contactedLeads: '',
+    interestedLeads: '',
+    totalReplies: '',
     status: '',
     remark: '',
   }
@@ -137,29 +141,12 @@ const DATE_FIELDS = new Set<keyof CreateOnboardingInput>([
   'campaignLaunchDate',
 ])
 
-const NUMBER_FIELDS = new Set<keyof CreateOnboardingInput>([
-  'committedMonths',
-  'noOfAiSdrs',
-  'committedAmount',
-  'paidAmount',
-  'noOfCampaigns',
-  'targetedLeads',
-  'contactedLeads',
-  'interestedLeads',
-  'totalReplies',
-])
-
 function assignField(
   record: CreateOnboardingInput,
   field: keyof CreateOnboardingInput,
   value: unknown,
 ) {
   if (value === null || value === undefined || value === '') return
-
-  if (NUMBER_FIELDS.has(field)) {
-    record[field] = parseNumber(value) as never
-    return
-  }
 
   if (DATE_FIELDS.has(field)) {
     const parsed = parseExcelDate(value)
@@ -186,19 +173,19 @@ export function exportOnboardingsExcel(onboardings: Onboarding[]) {
   const rows = onboardings.map((item, index) => ({
     'S.No': index + 1,
     Organization: item.organization ?? '',
-    'Committed Months': item.committedMonths ?? 0,
+    'Committed Months': exportText(item.committedMonths),
     'Agreement Signed Date': formatExportDate(item.agreementSignedDate),
-    'No.of AI SDRs': item.noOfAiSdrs ?? 0,
+    'No.of AI SDRs': exportText(item.noOfAiSdrs),
     'Onboarding Date': formatExportDate(item.onboardingDate),
     'End Date': formatExportDate(item.endDate),
-    'Comitted Amount': item.committedAmount ?? 0,
-    'Paid Amount': item.paidAmount ?? 0,
+    'Comitted Amount': exportText(item.committedAmount),
+    'Paid Amount': exportText(item.paidAmount),
     '1st campaign Launch date': formatExportDate(item.campaignLaunchDate),
-    'no.of campaigns': item.noOfCampaigns ?? 0,
-    'Targeted Leads': item.targetedLeads ?? 0,
-    'Contacted Leads': item.contactedLeads ?? 0,
-    'Interested Leads': item.interestedLeads ?? 0,
-    'Total Replies': item.totalReplies ?? 0,
+    'no.of campaigns': exportText(item.noOfCampaigns),
+    'Targeted Leads': exportText(item.targetedLeads),
+    'Contacted Leads': exportText(item.contactedLeads),
+    'Interested Leads': exportText(item.interestedLeads),
+    'Total Replies': exportText(item.totalReplies),
     Status: item.status ?? '',
     Remark: item.remark ?? '',
   }))

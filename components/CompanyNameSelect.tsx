@@ -1,7 +1,8 @@
 'use client'
 
 import { Check, ChevronDown } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 type BaseProps = {
   companyNames: string[]
@@ -209,16 +210,58 @@ export function WyraSelect({
   allowEmpty = true,
 }: WyraSelectProps) {
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [menuStyle, setMenuStyle] = useState<{
+    top: number
+    left: number
+    width: number
+  } | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const listId = useId()
 
   const selectedLabel = options.find((option) => option.value === value)?.label
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const updateMenuPosition = useCallback(() => {
+    const trigger = rootRef.current
+    if (!trigger) return
+
+    const rect = trigger.getBoundingClientRect()
+    setMenuStyle({
+      top: rect.bottom + 8,
+      left: rect.left,
+      width: rect.width,
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!open) {
+      setMenuStyle(null)
+      return
+    }
+
+    updateMenuPosition()
+
+    const handleReposition = () => updateMenuPosition()
+    window.addEventListener('resize', handleReposition)
+    window.addEventListener('scroll', handleReposition, true)
+
+    return () => {
+      window.removeEventListener('resize', handleReposition)
+      window.removeEventListener('scroll', handleReposition, true)
+    }
+  }, [open, updateMenuPosition])
+
+  useEffect(() => {
     if (!open) return
 
     const handlePointerDown = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
         setOpen(false)
       }
     }
@@ -234,6 +277,60 @@ export function WyraSelect({
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [open])
+
+  const menu = open && menuStyle ? (
+    <div
+      ref={menuRef}
+      id={listId}
+      role="listbox"
+      className="fixed z-[200] wyra-dropdown-panel shadow-lg"
+      style={{
+        top: menuStyle.top,
+        left: menuStyle.left,
+        width: menuStyle.width,
+      }}
+    >
+      <div className="wyra-dropdown-menu">
+        {allowEmpty ? (
+          <button
+            type="button"
+            role="option"
+            aria-selected={!value}
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-theme-muted hover:bg-theme-hover"
+            onClick={() => {
+              onChange('')
+              setOpen(false)
+            }}
+          >
+            <span className="w-4" />
+            {placeholder}
+          </button>
+        ) : null}
+
+        {options.map((option) => {
+          const isSelected = option.value === value
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={isSelected}
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-theme-fg hover:bg-theme-hover"
+              onClick={() => {
+                onChange(option.value)
+                setOpen(false)
+              }}
+            >
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                {isSelected ? <Check size={14} className="text-aqua" /> : null}
+              </span>
+              <span className="truncate">{option.label}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  ) : null
 
   return (
     <div ref={rootRef} className={`relative ${className}`}>
@@ -255,53 +352,7 @@ export function WyraSelect({
         />
       </button>
 
-      {open ? (
-        <div
-          id={listId}
-          role="listbox"
-          className="absolute z-50 mt-2 w-full wyra-dropdown-panel shadow-lg"
-        >
-          <div className="wyra-dropdown-menu">
-            {allowEmpty ? (
-              <button
-                type="button"
-                role="option"
-                aria-selected={!value}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-theme-muted hover:bg-theme-hover"
-                onClick={() => {
-                  onChange('')
-                  setOpen(false)
-                }}
-              >
-                <span className="w-4" />
-                {placeholder}
-              </button>
-            ) : null}
-
-            {options.map((option) => {
-              const isSelected = option.value === value
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-theme-fg hover:bg-theme-hover"
-                  onClick={() => {
-                    onChange(option.value)
-                    setOpen(false)
-                  }}
-                >
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                    {isSelected ? <Check size={14} className="text-aqua" /> : null}
-                  </span>
-                  <span className="truncate">{option.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      ) : null}
+      {mounted && menu ? createPortal(menu, document.body) : null}
     </div>
   )
 }

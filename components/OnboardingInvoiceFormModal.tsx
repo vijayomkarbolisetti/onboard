@@ -9,13 +9,7 @@ import type {
   OnboardingInvoiceRecord,
   SaasMspAgreement,
 } from '@/types'
-import {
-  numberFieldDisplay,
-  parseDecimalField,
-  parseIntegerField,
-  toNumber,
-  type NumberFieldValue,
-} from '@/utils/format'
+import { toFormText } from '@/utils/format'
 
 interface OnboardingInvoiceFormModalProps {
   open: boolean
@@ -25,32 +19,52 @@ interface OnboardingInvoiceFormModalProps {
   onSubmit: (input: CreateOnboardingInvoiceInput) => Promise<void>
 }
 
-const emptyForm = {
+const emptyForm: CreateOnboardingInvoiceInput = {
   companyName: '',
   subscriptionSummary: '',
   agreementDocumentLink: '',
-  saasMspAgreement: '' as SaasMspAgreement | '',
+  saasMspAgreement: 'SaaS',
   sponsor: '',
   partnerProgram: '',
   pointOfContact: '',
   personEmailId: '',
   onBoardDate: '',
-  invoiceAmount: '' as NumberFieldValue,
+  invoiceAmount: '',
   firstInvoiceDate: '',
   invoiceCycle: '',
-  invoicesGenerated: '' as NumberFieldValue,
-  invoicesPaid: '' as NumberFieldValue,
-  totalAmountPaid: '' as NumberFieldValue,
-  pendingAmount: '' as NumberFieldValue,
+  invoicesGenerated: '',
+  invoicesPaid: '',
+  totalAmountPaid: '',
+  pendingAmount: '',
   nextInvoiceStatus: '',
 }
-
-type OnboardingInvoiceFormState = typeof emptyForm
 
 const agreementOptions: { value: SaasMspAgreement; label: string }[] = [
   { value: 'SaaS', label: 'SaaS' },
   { value: 'MSP', label: 'MSP' },
 ]
+
+function toFormValues(record: OnboardingInvoiceRecord): CreateOnboardingInvoiceInput {
+  return {
+    companyName: record.companyName ?? '',
+    subscriptionSummary: record.subscriptionSummary ?? '',
+    agreementDocumentLink: record.agreementDocumentLink ?? '',
+    saasMspAgreement: record.saasMspAgreement,
+    sponsor: record.sponsor ?? '',
+    partnerProgram: record.partnerProgram ?? '',
+    pointOfContact: record.pointOfContact ?? '',
+    personEmailId: record.personEmailId ?? '',
+    onBoardDate: record.onBoardDate ?? '',
+    invoiceAmount: toFormText(record.invoiceAmount),
+    firstInvoiceDate: record.firstInvoiceDate ?? '',
+    invoiceCycle: record.invoiceCycle ?? '',
+    invoicesGenerated: toFormText(record.invoicesGenerated),
+    invoicesPaid: toFormText(record.invoicesPaid),
+    totalAmountPaid: toFormText(record.totalAmountPaid),
+    pendingAmount: toFormText(record.pendingAmount),
+    nextInvoiceStatus: record.nextInvoiceStatus ?? '',
+  }
+}
 
 export function OnboardingInvoiceFormModal({
   open,
@@ -59,32 +73,14 @@ export function OnboardingInvoiceFormModal({
   onClose,
   onSubmit,
 }: OnboardingInvoiceFormModalProps) {
-  const [form, setForm] = useState<OnboardingInvoiceFormState>(emptyForm)
+  const [form, setForm] = useState<CreateOnboardingInvoiceInput>(emptyForm)
   const [submitting, setSubmitting] = useState(false)
   const isEdit = mode === 'edit'
 
   useEffect(() => {
     if (!open) return
     if (isEdit && initial) {
-      setForm({
-        companyName: initial.companyName,
-        subscriptionSummary: initial.subscriptionSummary ?? '',
-        agreementDocumentLink: initial.agreementDocumentLink ?? '',
-        saasMspAgreement: initial.saasMspAgreement,
-        sponsor: initial.sponsor,
-        partnerProgram: initial.partnerProgram,
-        pointOfContact: initial.pointOfContact,
-        personEmailId: initial.personEmailId,
-        onBoardDate: initial.onBoardDate,
-        invoiceAmount: initial.invoiceAmount ?? '',
-        firstInvoiceDate: initial.firstInvoiceDate,
-        invoiceCycle: initial.invoiceCycle,
-        invoicesGenerated: initial.invoicesGenerated ?? '',
-        invoicesPaid: initial.invoicesPaid ?? '',
-        totalAmountPaid: initial.totalAmountPaid ?? '',
-        pendingAmount: initial.pendingAmount ?? '',
-        nextInvoiceStatus: initial.nextInvoiceStatus ?? '',
-      })
+      setForm(toFormValues(initial))
     } else {
       setForm(emptyForm)
     }
@@ -101,19 +97,19 @@ export function OnboardingInvoiceFormModal({
         companyName: form.companyName.trim(),
         subscriptionSummary: form.subscriptionSummary.trim(),
         agreementDocumentLink: form.agreementDocumentLink.trim(),
-        saasMspAgreement: form.saasMspAgreement as SaasMspAgreement,
+        saasMspAgreement: form.saasMspAgreement,
         sponsor: form.sponsor.trim(),
         partnerProgram: form.partnerProgram.trim(),
         pointOfContact: form.pointOfContact.trim(),
         personEmailId: form.personEmailId.trim(),
         onBoardDate: form.onBoardDate,
-        invoiceAmount: toNumber(form.invoiceAmount),
+        invoiceAmount: form.invoiceAmount.trim(),
         firstInvoiceDate: form.firstInvoiceDate,
         invoiceCycle: form.invoiceCycle.trim(),
-        invoicesGenerated: toNumber(form.invoicesGenerated),
-        invoicesPaid: toNumber(form.invoicesPaid),
-        totalAmountPaid: toNumber(form.totalAmountPaid),
-        pendingAmount: toNumber(form.pendingAmount),
+        invoicesGenerated: form.invoicesGenerated.trim(),
+        invoicesPaid: form.invoicesPaid.trim(),
+        totalAmountPaid: form.totalAmountPaid.trim(),
+        pendingAmount: form.pendingAmount.trim(),
         nextInvoiceStatus: form.nextInvoiceStatus.trim(),
       })
       notify.success(isEdit ? 'Record updated' : 'Record added')
@@ -132,22 +128,11 @@ export function OnboardingInvoiceFormModal({
     onClose()
   }
 
-  const set = (key: keyof OnboardingInvoiceFormState, value: string) => {
+  const set = <K extends keyof CreateOnboardingInvoiceInput>(
+    key: K,
+    value: CreateOnboardingInvoiceInput[K],
+  ) => {
     setForm((prev) => ({ ...prev, [key]: value }))
-  }
-
-  const setIntegerField = (
-    key: 'invoicesGenerated' | 'invoicesPaid',
-    value: string,
-  ) => {
-    setForm((prev) => ({ ...prev, [key]: parseIntegerField(value) }))
-  }
-
-  const setDecimalField = (
-    key: 'invoiceAmount' | 'totalAmountPaid' | 'pendingAmount',
-    value: string,
-  ) => {
-    setForm((prev) => ({ ...prev, [key]: parseDecimalField(value) }))
   }
 
   return (
@@ -180,6 +165,7 @@ export function OnboardingInvoiceFormModal({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Company Name" className="sm:col-span-2">
               <input
+                type="text"
                 className="wyra-input"
                 value={form.companyName}
                 onChange={(e) => set('companyName', e.target.value)}
@@ -199,7 +185,7 @@ export function OnboardingInvoiceFormModal({
 
             <Field label="Agreement Document Link" className="sm:col-span-2">
               <input
-                type="url"
+                type="text"
                 className="wyra-input"
                 value={form.agreementDocumentLink}
                 onChange={(e) => set('agreementDocumentLink', e.target.value)}
@@ -210,8 +196,9 @@ export function OnboardingInvoiceFormModal({
             <Field label="Saas / MSP Agreement">
               <WyraSelect
                 value={form.saasMspAgreement}
-                onChange={(value) => set('saasMspAgreement', value)}
+                onChange={(value) => set('saasMspAgreement', value as SaasMspAgreement)}
                 placeholder="Select SaaS or MSP"
+                allowEmpty={false}
                 options={agreementOptions.map((opt) => ({
                   value: opt.value,
                   label: opt.label,
@@ -221,6 +208,7 @@ export function OnboardingInvoiceFormModal({
 
             <Field label="Sponsor">
               <input
+                type="text"
                 className="wyra-input"
                 value={form.sponsor}
                 onChange={(e) => set('sponsor', e.target.value)}
@@ -230,6 +218,7 @@ export function OnboardingInvoiceFormModal({
 
             <Field label="Partner Program">
               <input
+                type="text"
                 className="wyra-input"
                 value={form.partnerProgram}
                 onChange={(e) => set('partnerProgram', e.target.value)}
@@ -239,6 +228,7 @@ export function OnboardingInvoiceFormModal({
 
             <Field label="Point Of Contact">
               <input
+                type="text"
                 className="wyra-input"
                 value={form.pointOfContact}
                 onChange={(e) => set('pointOfContact', e.target.value)}
@@ -248,7 +238,7 @@ export function OnboardingInvoiceFormModal({
 
             <Field label="Person Email Id">
               <input
-                type="email"
+                type="text"
                 className="wyra-input"
                 value={form.personEmailId}
                 onChange={(e) => set('personEmailId', e.target.value)}
@@ -267,13 +257,11 @@ export function OnboardingInvoiceFormModal({
 
             <Field label="Invoice Amount (USD)">
               <input
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 className="wyra-input"
-                value={numberFieldDisplay(form.invoiceAmount)}
-                onChange={(e) => setDecimalField('invoiceAmount', e.target.value)}
-                placeholder="0.00"
+                value={form.invoiceAmount}
+                onChange={(e) => set('invoiceAmount', e.target.value)}
+                placeholder="Enter amount"
               />
             </Field>
 
@@ -288,6 +276,7 @@ export function OnboardingInvoiceFormModal({
 
             <Field label="Invoice Cycle">
               <input
+                type="text"
                 className="wyra-input"
                 value={form.invoiceCycle}
                 onChange={(e) => set('invoiceCycle', e.target.value)}
@@ -297,46 +286,42 @@ export function OnboardingInvoiceFormModal({
 
             <Field label="No. of Invoices Generated">
               <input
-                type="number"
-                min="0"
+                type="text"
                 className="wyra-input"
-                value={numberFieldDisplay(form.invoicesGenerated)}
-                onChange={(e) => setIntegerField('invoicesGenerated', e.target.value)}
+                value={form.invoicesGenerated}
+                onChange={(e) => set('invoicesGenerated', e.target.value)}
+                placeholder="Enter value"
               />
             </Field>
 
             <div className="grid gap-4 sm:col-span-2 sm:grid-cols-3">
               <Field label="No. of Invoices Paid">
                 <input
-                  type="number"
-                  min="0"
+                  type="text"
                   className="wyra-input"
-                  value={numberFieldDisplay(form.invoicesPaid)}
-                  onChange={(e) => setIntegerField('invoicesPaid', e.target.value)}
+                  value={form.invoicesPaid}
+                  onChange={(e) => set('invoicesPaid', e.target.value)}
+                  placeholder="Enter value"
                 />
               </Field>
 
               <Field label="Total Amount Paid (USD)">
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  type="text"
                   className="wyra-input"
-                  value={numberFieldDisplay(form.totalAmountPaid)}
-                  onChange={(e) => setDecimalField('totalAmountPaid', e.target.value)}
-                  placeholder="0.00"
+                  value={form.totalAmountPaid}
+                  onChange={(e) => set('totalAmountPaid', e.target.value)}
+                  placeholder="Enter amount"
                 />
               </Field>
 
               <Field label="Pending Amount (USD)">
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  type="text"
                   className="wyra-input"
-                  value={numberFieldDisplay(form.pendingAmount)}
-                  onChange={(e) => setDecimalField('pendingAmount', e.target.value)}
-                  placeholder="0.00"
+                  value={form.pendingAmount}
+                  onChange={(e) => set('pendingAmount', e.target.value)}
+                  placeholder="Enter amount"
                 />
               </Field>
             </div>

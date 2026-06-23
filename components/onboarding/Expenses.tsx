@@ -11,7 +11,7 @@ import { EXPENSE_TABLE_COLUMNS, exportExpensesExcel, downloadExpenseTemplate, pa
 import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
 import type { CreateExpenseInput, Expense } from '@/types'
-import { formatDate } from '@/utils/format'
+import { displayFieldValue, formatDate } from '@/utils/format'
 
 interface ExpensesProps {
   expenses: Expense[]
@@ -23,15 +23,8 @@ interface ExpensesProps {
   onImport: (inputs: CreateExpenseInput[]) => Promise<void>
 }
 
-function formatExpenseAmount(amount: number) {
-  if (!Number.isFinite(amount)) return '—'
-  if (Number.isInteger(amount)) {
-    return amount.toLocaleString('en-US', { maximumFractionDigits: 0 })
-  }
-  return amount.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
+function formatExpenseAmount(amount: string | number) {
+  return displayFieldValue(amount)
 }
 
 function cellValue(

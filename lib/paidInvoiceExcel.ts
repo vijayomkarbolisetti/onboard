@@ -5,7 +5,6 @@ import {
   matchesInvoiceNumberHeader,
   parseExcelDate,
   parseExcelSheet,
-  parseNumber,
   writeExcelFile,
   downloadExcelTemplate,
 } from '@/lib/excelUtils'
@@ -85,7 +84,7 @@ function emptyRecord(): CreatePaidInvoiceInput {
     customerName: '',
     companyName: '',
     invoiceNumber: '',
-    invoiceAmount: 0,
+    invoiceAmount: '',
     status: '',
     paymentDate: '',
     paymentMethod: '',
@@ -98,11 +97,6 @@ function assignField(
   value: unknown,
 ) {
   if (value === null || value === undefined || value === '') return
-
-  if (field === 'invoiceAmount') {
-    record[field] = parseNumber(value)
-    return
-  }
 
   if (field === 'invoiceDate' || field === 'paymentDate') {
     const parsed = parseExcelDate(value)
@@ -138,7 +132,7 @@ export function exportPaidInvoicesExcel(invoices: PaidInvoice[]) {
     'Customer Name': invoice.customerName ?? '',
     'Company Name': formatCompanyNames(invoice.companyName),
     'Invoice Number': resolveInvoiceNumber(invoice as unknown as Record<string, unknown>),
-    'Invoice Amount': invoice.invoiceAmount ?? 0,
+    'Invoice Amount': invoice.invoiceAmount != null ? String(invoice.invoiceAmount) : '',
     Status: invoice.status ?? '',
     'Payment Date': formatExportDate(invoice.paymentDate),
     'Payment Method': invoice.paymentMethod ?? '',

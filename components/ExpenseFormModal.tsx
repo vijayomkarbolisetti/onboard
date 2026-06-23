@@ -5,7 +5,7 @@ import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { notify } from '@/lib/toast'
 import type { CreateExpenseInput, Expense } from '@/types'
-import { numberFieldDisplay, parseDecimalField, toNumber, type NumberFieldValue } from '@/utils/format'
+import { toFormText } from '@/utils/format'
 
 interface ExpenseFormModalProps {
   open: boolean
@@ -15,16 +15,14 @@ interface ExpenseFormModalProps {
   onSubmit: (input: CreateExpenseInput) => Promise<void>
 }
 
-const emptyForm = {
+const emptyForm: CreateExpenseInput = {
   toolName: '',
   invoiceDate: '',
   cardUsed: '',
   cardOwner: '',
-  amount: '' as NumberFieldValue,
+  amount: '',
   currency: 'USD',
 }
-
-type ExpenseFormState = typeof emptyForm
 
 const currencyOptions = ['USD', 'EUR', 'GBP', 'INR', 'AUD', 'CAD']
 
@@ -35,7 +33,7 @@ export function ExpenseFormModal({
   onClose,
   onSubmit,
 }: ExpenseFormModalProps) {
-  const [form, setForm] = useState<ExpenseFormState>(emptyForm)
+  const [form, setForm] = useState<CreateExpenseInput>(emptyForm)
   const [submitting, setSubmitting] = useState(false)
   const isEdit = mode === 'edit'
 
@@ -47,7 +45,7 @@ export function ExpenseFormModal({
         invoiceDate: initial.invoiceDate,
         cardUsed: initial.cardUsed,
         cardOwner: initial.cardOwner,
-        amount: initial.amount ?? '',
+        amount: toFormText(initial.amount),
         currency: initial.currency,
       })
     } else {
@@ -67,7 +65,7 @@ export function ExpenseFormModal({
         invoiceDate: form.invoiceDate,
         cardUsed: form.cardUsed.trim(),
         cardOwner: form.cardOwner.trim(),
-        amount: toNumber(form.amount),
+        amount: form.amount.trim(),
         currency: form.currency.trim() || 'USD',
       })
       notify.success(isEdit ? 'Expense updated' : 'Expense added')
@@ -86,7 +84,7 @@ export function ExpenseFormModal({
     onClose()
   }
 
-  const set = (key: keyof ExpenseFormState, value: string) => {
+  const set = (key: keyof CreateExpenseInput, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -156,15 +154,11 @@ export function ExpenseFormModal({
 
             <Field label="Amount">
               <input
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 className="wyra-input"
-                value={numberFieldDisplay(form.amount)}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, amount: parseDecimalField(e.target.value) }))
-                }
-                placeholder="0.00"
+                value={form.amount}
+                onChange={(e) => set('amount', e.target.value)}
+                placeholder="Enter amount"
               />
             </Field>
 

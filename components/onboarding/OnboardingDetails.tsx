@@ -15,7 +15,6 @@ import {
 } from '@/lib/onboardingExcel'
 import type { CreateOnboardingInput, Onboarding } from '@/types'
 import {
-  formatAmount,
   formatDate,
   onboardingStatusClass,
   onboardingStatusLabel,
@@ -52,6 +51,11 @@ const columns = [
   'Remark',
 ] as const
 
+function displayText(value: string | number | undefined | null) {
+  if (value === null || value === undefined || value === '') return '—'
+  return String(value)
+}
+
 function cellValue(
   item: Onboarding,
   column: (typeof columns)[number],
@@ -63,31 +67,31 @@ function cellValue(
     case 'Organization':
       return item.organization || '—'
     case 'Committed Months':
-      return item.committedMonths ?? 0
+      return displayText(item.committedMonths)
     case 'Agreement Signed Date':
       return formatDate(item.agreementSignedDate ?? '')
     case 'No.of AI SDRs':
-      return item.noOfAiSdrs ?? 0
+      return displayText(item.noOfAiSdrs)
     case 'Onboarding Date':
       return formatDate(item.onboardingDate)
     case 'End Date':
       return formatDate(item.endDate)
     case 'Comitted Amount':
-      return formatAmount(item.committedAmount ?? 0, 'USD')
+      return displayText(item.committedAmount)
     case 'Paid Amount':
-      return formatAmount(item.paidAmount ?? 0, 'USD')
+      return displayText(item.paidAmount)
     case '1st campaign Launch date':
       return formatDate(item.campaignLaunchDate)
     case 'no.of campaigns':
-      return item.noOfCampaigns ?? 0
+      return displayText(item.noOfCampaigns)
     case 'Targeted Leads':
-      return item.targetedLeads ?? 0
+      return displayText(item.targetedLeads)
     case 'Contacted Leads':
-      return item.contactedLeads ?? 0
+      return displayText(item.contactedLeads)
     case 'Interested Leads':
-      return item.interestedLeads ?? 0
+      return displayText(item.interestedLeads)
     case 'Total Replies':
-      return item.totalReplies ?? 0
+      return displayText(item.totalReplies)
     case 'Status':
       return item.status ? (
         <span
@@ -112,12 +116,18 @@ function cellValue(
   }
 }
 
+function remarkDetail(text: string | undefined) {
+  const trimmed = text?.trim()
+  if (!trimmed) return '—'
+  return <span className="whitespace-pre-wrap break-words">{trimmed}</span>
+}
+
 function buildOnboardingDetailFields(item: Onboarding, index: number): DetailField[] {
   return columns
     .filter((col) => col !== 'S.No')
     .map((col) => ({
       label: col,
-      value: cellValue(item, col, index),
+      value: col === 'Remark' ? remarkDetail(item.remark) : cellValue(item, col, index),
       fullWidth: col === 'Remark',
     }))
 }

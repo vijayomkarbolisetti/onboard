@@ -5,11 +5,18 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { CreateInvoiceModal } from '@/components/CreateInvoiceModal'
 import { cn } from '@/lib/utils'
 import type { CreateInvoiceInput, Invoice, Onboarding } from '@/types'
-import { formatCurrency, formatDate, invoiceStatusClass } from '@/utils/format'
+import { displayFieldValue, formatDate, invoiceStatusClass } from '@/utils/format'
+
+function sumAmounts(items: { amount: string | number }[]) {
+  return items.reduce((sum, item) => {
+    const parsed = Number(item.amount)
+    return sum + (Number.isFinite(parsed) ? parsed : 0)
+  }, 0)
+}
 
 interface InvoiceTrackerProps {
   invoices: Invoice[]
-  
+
   onboardings: Onboarding[]
   loading: boolean
   error: string | null
@@ -27,10 +34,8 @@ export function InvoiceTracker({
   const [modalOpen, setModalOpen] = useState(false)
 
   const stats = useMemo(() => {
-    const total = invoices.reduce((sum, item) => sum + item.amount, 0)
-    const paid = invoices
-      .filter((item) => item.status === 'paid')
-      .reduce((sum, item) => sum + item.amount, 0)
+    const total = sumAmounts(invoices)
+    const paid = sumAmounts(invoices.filter((item) => item.status === 'paid'))
     const pending = invoices.filter((item) => item.status === 'pending').length
     const overdue = invoices.filter((item) => item.status === 'overdue').length
 
@@ -54,12 +59,12 @@ export function InvoiceTracker({
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total Invoiced"
-          value={formatCurrency(stats.total)}
+          value={displayFieldValue(stats.total)}
           icon={<Receipt className="text-wyra-blue" size={20} />}
         />
         <StatCard
           label="Collected"
-          value={formatCurrency(stats.paid)}
+          value={displayFieldValue(stats.paid)}
           icon={<CheckCircle2 className="text-aqua" size={20} />}
         />
         <StatCard
@@ -106,7 +111,7 @@ export function InvoiceTracker({
                     </td>
                     <td className="px-5 py-4 text-theme-muted">{item.organization}</td>
                     <td className="px-5 py-4 font-semibold text-aqua">
-                      {formatCurrency(item.amount)}
+                      {displayFieldValue(item.amount)}
                     </td>
                     <td className="px-5 py-4 text-theme-muted">{formatDate(item.dueDate)}</td>
                     <td className="px-5 py-4">

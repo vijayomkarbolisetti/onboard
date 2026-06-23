@@ -5,13 +5,6 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { notify } from '@/lib/toast'
 import type { CreateOnboardingInput, Onboarding } from '@/types'
-import {
-  numberFieldDisplay,
-  parseDecimalField,
-  parseIntegerField,
-  toNumber,
-  type NumberFieldValue,
-} from '@/utils/format'
 
 interface OnboardingFormModalProps {
   open: boolean
@@ -21,44 +14,46 @@ interface OnboardingFormModalProps {
   onSubmit: (input: CreateOnboardingInput) => Promise<void>
 }
 
-const emptyForm = {
+const emptyForm: CreateOnboardingInput = {
   organization: '',
-  committedMonths: '' as NumberFieldValue,
+  committedMonths: '',
   agreementSignedDate: '',
-  noOfAiSdrs: '' as NumberFieldValue,
+  noOfAiSdrs: '',
   onboardingDate: '',
   endDate: '',
-  committedAmount: '' as NumberFieldValue,
-  paidAmount: '' as NumberFieldValue,
+  committedAmount: '',
+  paidAmount: '',
   campaignLaunchDate: '',
-  noOfCampaigns: '' as NumberFieldValue,
-  targetedLeads: '' as NumberFieldValue,
-  contactedLeads: '' as NumberFieldValue,
-  interestedLeads: '' as NumberFieldValue,
-  totalReplies: '' as NumberFieldValue,
+  noOfCampaigns: '',
+  targetedLeads: '',
+  contactedLeads: '',
+  interestedLeads: '',
+  totalReplies: '',
   status: '',
   remark: '',
 }
 
-type OnboardingFormState = typeof emptyForm
+function toFormValue(value: string | number | undefined | null) {
+  if (value === null || value === undefined) return ''
+  return String(value)
+}
 
-function toFormValues(record: Onboarding): OnboardingFormState {
+function toFormValues(record: Onboarding): CreateOnboardingInput {
   return {
-    ...emptyForm,
     organization: record.organization ?? '',
-    committedMonths: record.committedMonths ?? 0,
+    committedMonths: toFormValue(record.committedMonths),
     agreementSignedDate: record.agreementSignedDate ?? '',
-    noOfAiSdrs: record.noOfAiSdrs ?? 0,
+    noOfAiSdrs: toFormValue(record.noOfAiSdrs),
     onboardingDate: record.onboardingDate ?? '',
     endDate: record.endDate ?? '',
-    committedAmount: record.committedAmount ?? 0,
-    paidAmount: record.paidAmount ?? 0,
+    committedAmount: toFormValue(record.committedAmount),
+    paidAmount: toFormValue(record.paidAmount),
     campaignLaunchDate: record.campaignLaunchDate ?? '',
-    noOfCampaigns: record.noOfCampaigns ?? 0,
-    targetedLeads: record.targetedLeads ?? 0,
-    contactedLeads: record.contactedLeads ?? 0,
-    interestedLeads: record.interestedLeads ?? 0,
-    totalReplies: record.totalReplies ?? 0,
+    noOfCampaigns: toFormValue(record.noOfCampaigns),
+    targetedLeads: toFormValue(record.targetedLeads),
+    contactedLeads: toFormValue(record.contactedLeads),
+    interestedLeads: toFormValue(record.interestedLeads),
+    totalReplies: toFormValue(record.totalReplies),
     status: record.status ?? '',
     remark: record.remark ?? '',
   }
@@ -70,7 +65,13 @@ const leadMetricFields = [
   ['interestedLeads', 'Interested Leads'],
   ['totalReplies', 'Total Replies'],
 ] as const satisfies ReadonlyArray<
-  readonly [keyof Pick<OnboardingFormState, 'targetedLeads' | 'contactedLeads' | 'interestedLeads' | 'totalReplies'>, string]
+  readonly [
+    keyof Pick<
+      CreateOnboardingInput,
+      'targetedLeads' | 'contactedLeads' | 'interestedLeads' | 'totalReplies'
+    >,
+    string,
+  ]
 >
 
 export function OnboardingFormModal({
@@ -81,7 +82,7 @@ export function OnboardingFormModal({
   onSubmit,
 }: OnboardingFormModalProps) {
   const isEdit = mode === 'edit'
-  const [form, setForm] = useState<OnboardingFormState>(() =>
+  const [form, setForm] = useState<CreateOnboardingInput>(() =>
     open && mode === 'edit' && initial ? toFormValues(initial) : emptyForm,
   )
   const [submitting, setSubmitting] = useState(false)
@@ -109,18 +110,11 @@ export function OnboardingFormModal({
     }
   }, [open, isEdit, initial])
 
-  const setAmountField = (key: 'committedAmount' | 'paidAmount', value: string) => {
-    setForm((prev) => ({
-      ...prev,
-      [key]: parseDecimalField(value),
-    }))
-  }
-
-  const setNumberField = (key: keyof OnboardingFormState, value: string) => {
-    setForm((prev) => ({
-      ...prev,
-      [key]: parseIntegerField(value),
-    }))
+  const setField = <K extends keyof CreateOnboardingInput>(
+    key: K,
+    value: CreateOnboardingInput[K],
+  ) => {
+    setForm((prev) => ({ ...prev, [key]: value }))
   }
 
   const handleClose = () => {
@@ -136,19 +130,19 @@ export function OnboardingFormModal({
     try {
       await onSubmit({
         organization: form.organization.trim(),
-        committedMonths: toNumber(form.committedMonths),
+        committedMonths: form.committedMonths.trim(),
         agreementSignedDate: form.agreementSignedDate,
-        noOfAiSdrs: toNumber(form.noOfAiSdrs),
+        noOfAiSdrs: form.noOfAiSdrs.trim(),
         onboardingDate: form.onboardingDate,
         endDate: form.endDate,
-        committedAmount: toNumber(form.committedAmount),
-        paidAmount: toNumber(form.paidAmount),
+        committedAmount: form.committedAmount.trim(),
+        paidAmount: form.paidAmount.trim(),
         campaignLaunchDate: form.campaignLaunchDate,
-        noOfCampaigns: toNumber(form.noOfCampaigns),
-        targetedLeads: toNumber(form.targetedLeads),
-        contactedLeads: toNumber(form.contactedLeads),
-        interestedLeads: toNumber(form.interestedLeads),
-        totalReplies: toNumber(form.totalReplies),
+        noOfCampaigns: form.noOfCampaigns.trim(),
+        targetedLeads: form.targetedLeads.trim(),
+        contactedLeads: form.contactedLeads.trim(),
+        interestedLeads: form.interestedLeads.trim(),
+        totalReplies: form.totalReplies.trim(),
         status: form.status.trim(),
         remark: form.remark.trim(),
       })
@@ -205,7 +199,7 @@ export function OnboardingFormModal({
               <input
                 type="text"
                 value={form.organization}
-                onChange={(e) => setForm({ ...form, organization: e.target.value })}
+                onChange={(e) => setField('organization', e.target.value)}
                 placeholder="Enter organization name"
                 className="wyra-input"
               />
@@ -215,11 +209,10 @@ export function OnboardingFormModal({
               <label className="block space-y-2">
                 <span className="wyra-label">Committed Months</span>
                 <input
-                  type="number"
-                  min={0}
-                  value={numberFieldDisplay(form.committedMonths)}
-                  onChange={(e) => setNumberField('committedMonths', e.target.value)}
-                  placeholder="0"
+                  type="text"
+                  value={form.committedMonths}
+                  onChange={(e) => setField('committedMonths', e.target.value)}
+                  placeholder="e.g. 6 or 6+6"
                   className="wyra-input"
                 />
               </label>
@@ -229,7 +222,7 @@ export function OnboardingFormModal({
                 <input
                   type="date"
                   value={form.agreementSignedDate}
-                  onChange={(e) => setForm({ ...form, agreementSignedDate: e.target.value })}
+                  onChange={(e) => setField('agreementSignedDate', e.target.value)}
                   className="wyra-input"
                 />
               </label>
@@ -238,11 +231,10 @@ export function OnboardingFormModal({
             <label className="block space-y-2">
               <span className="wyra-label">No.of AI SDRs</span>
               <input
-                type="number"
-                min={0}
-                value={numberFieldDisplay(form.noOfAiSdrs)}
-                onChange={(e) => setNumberField('noOfAiSdrs', e.target.value)}
-                placeholder="0"
+                type="text"
+                value={form.noOfAiSdrs}
+                onChange={(e) => setField('noOfAiSdrs', e.target.value)}
+                placeholder="Enter value"
                 className="wyra-input"
               />
             </label>
@@ -253,7 +245,7 @@ export function OnboardingFormModal({
                 <input
                   type="date"
                   value={form.onboardingDate}
-                  onChange={(e) => setForm({ ...form, onboardingDate: e.target.value })}
+                  onChange={(e) => setField('onboardingDate', e.target.value)}
                   className="wyra-input"
                 />
               </label>
@@ -263,7 +255,7 @@ export function OnboardingFormModal({
                 <input
                   type="date"
                   value={form.endDate}
-                  onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                  onChange={(e) => setField('endDate', e.target.value)}
                   className="wyra-input"
                 />
               </label>
@@ -273,12 +265,10 @@ export function OnboardingFormModal({
               <label className="block space-y-2">
                 <span className="wyra-label">Committed Amount</span>
                 <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={numberFieldDisplay(form.committedAmount)}
-                  onChange={(e) => setAmountField('committedAmount', e.target.value)}
-                  placeholder="0.00"
+                  type="text"
+                  value={form.committedAmount}
+                  onChange={(e) => setField('committedAmount', e.target.value)}
+                  placeholder="Enter amount"
                   className="wyra-input"
                 />
               </label>
@@ -286,12 +276,10 @@ export function OnboardingFormModal({
               <label className="block space-y-2">
                 <span className="wyra-label">Paid Amount</span>
                 <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={numberFieldDisplay(form.paidAmount)}
-                  onChange={(e) => setAmountField('paidAmount', e.target.value)}
-                  placeholder="0.00"
+                  type="text"
+                  value={form.paidAmount}
+                  onChange={(e) => setField('paidAmount', e.target.value)}
+                  placeholder="Enter amount"
                   className="wyra-input"
                 />
               </label>
@@ -302,7 +290,7 @@ export function OnboardingFormModal({
               <input
                 type="date"
                 value={form.campaignLaunchDate}
-                onChange={(e) => setForm({ ...form, campaignLaunchDate: e.target.value })}
+                onChange={(e) => setField('campaignLaunchDate', e.target.value)}
                 className="wyra-input"
               />
             </label>
@@ -310,11 +298,10 @@ export function OnboardingFormModal({
             <label className="block space-y-2">
               <span className="wyra-label">no.of campaigns</span>
               <input
-                type="number"
-                min={0}
-                value={numberFieldDisplay(form.noOfCampaigns)}
-                onChange={(e) => setNumberField('noOfCampaigns', e.target.value)}
-                placeholder="0"
+                type="text"
+                value={form.noOfCampaigns}
+                onChange={(e) => setField('noOfCampaigns', e.target.value)}
+                placeholder="Enter value"
                 className="wyra-input"
               />
             </label>
@@ -329,11 +316,10 @@ export function OnboardingFormModal({
                   <label key={key} className="flex min-w-0 flex-col gap-2">
                     <span className="wyra-label text-sm leading-snug">{label}</span>
                     <input
-                      type="number"
-                      min={0}
-                      value={numberFieldDisplay(form[key])}
-                      onChange={(e) => setNumberField(key, e.target.value)}
-                      placeholder="0"
+                      type="text"
+                      value={form[key]}
+                      onChange={(e) => setField(key, e.target.value)}
+                      placeholder="Enter value"
                       className="wyra-input"
                     />
                   </label>
@@ -346,7 +332,7 @@ export function OnboardingFormModal({
               <input
                 type="text"
                 value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                onChange={(e) => setField('status', e.target.value)}
                 placeholder="e.g. Pending, In progress, Completed"
                 className="wyra-input"
               />
@@ -356,7 +342,7 @@ export function OnboardingFormModal({
               <span className="wyra-label">Remark</span>
               <textarea
                 value={form.remark}
-                onChange={(e) => setForm({ ...form, remark: e.target.value })}
+                onChange={(e) => setField('remark', e.target.value)}
                 placeholder="Add notes or context..."
                 rows={4}
                 className="wyra-input resize-none"

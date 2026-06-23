@@ -4,7 +4,6 @@ import {
   formatTextCellValue,
   parseExcelDate,
   parseExcelSheet,
-  parseNumber,
   writeExcelFile,
   downloadExcelTemplate,
 } from '@/lib/excelUtils'
@@ -78,18 +77,13 @@ function emptyRecord(): CreateExpenseInput {
     invoiceDate: '',
     cardUsed: '',
     cardOwner: '',
-    amount: 0,
+    amount: '',
     currency: 'USD',
   }
 }
 
 function assignField(record: CreateExpenseInput, field: keyof CreateExpenseInput, value: unknown) {
   if (value === null || value === undefined || value === '') return
-
-  if (field === 'amount') {
-    record[field] = parseNumber(value)
-    return
-  }
 
   if (field === 'invoiceDate') {
     const parsed = parseExcelDate(value)
@@ -119,7 +113,7 @@ export function exportExpensesExcel(expenses: Expense[]) {
     'Invoice Date': formatExportDate(expense.invoiceDate),
     'Card Used': expense.cardUsed ?? '',
     'Card Owner': expense.cardOwner ?? '',
-    Amount: expense.amount ?? 0,
+    Amount: expense.amount != null ? String(expense.amount) : '',
     Currency: expense.currency ?? 'USD',
   }))
 

@@ -6,19 +6,19 @@ export interface Onboarding {
   id: string
   organizationId?: string
   organization: string
-  committedMonths?: number
+  committedMonths?: string | number
   agreementSignedDate?: string
-  noOfAiSdrs?: number
+  noOfAiSdrs?: string | number
   onboardingDate: string
   endDate: string
-  committedAmount?: number
-  paidAmount?: number
+  committedAmount?: string | number
+  paidAmount?: string | number
   campaignLaunchDate: string
-  noOfCampaigns?: number
-  targetedLeads: number
-  contactedLeads?: number
-  interestedLeads: number
-  totalReplies: number
+  noOfCampaigns?: string | number
+  targetedLeads?: string | number
+  contactedLeads?: string | number
+  interestedLeads?: string | number
+  totalReplies?: string | number
   status: string
   remark: string
   createdAt: string
@@ -36,13 +36,13 @@ export interface OnboardingInvoiceRecord {
   pointOfContact: string
   personEmailId: string
   onBoardDate: string
-  invoiceAmount: number
+  invoiceAmount: string | number
   firstInvoiceDate: string
   invoiceCycle: string
-  invoicesGenerated: number
-  invoicesPaid: number
-  totalAmountPaid?: number
-  pendingAmount?: number
+  invoicesGenerated: string | number
+  invoicesPaid: string | number
+  totalAmountPaid?: string | number
+  pendingAmount?: string | number
   nextInvoiceStatus: string
   createdAt: string
 }
@@ -52,7 +52,7 @@ export interface Invoice {
   onboardingId: string
   organization: string
   invoiceNumber: string
-  amount: number
+  amount: string | number
   status: InvoiceStatus
   dueDate: string
   issuedDate: string
@@ -62,19 +62,19 @@ export interface Invoice {
 
 export interface CreateOnboardingInput {
   organization: string
-  committedMonths: number
+  committedMonths: string
   agreementSignedDate: string
-  noOfAiSdrs: number
+  noOfAiSdrs: string
   onboardingDate: string
   endDate: string
-  committedAmount?: number
-  paidAmount?: number
+  committedAmount: string
+  paidAmount: string
   campaignLaunchDate: string
-  noOfCampaigns: number
-  targetedLeads: number
-  contactedLeads: number
-  interestedLeads: number
-  totalReplies: number
+  noOfCampaigns: string
+  targetedLeads: string
+  contactedLeads: string
+  interestedLeads: string
+  totalReplies: string
   status: string
   remark: string
 }
@@ -89,13 +89,13 @@ export interface CreateOnboardingInvoiceInput {
   pointOfContact: string
   personEmailId: string
   onBoardDate: string
-  invoiceAmount: number
+  invoiceAmount: string
   firstInvoiceDate: string
   invoiceCycle: string
-  invoicesGenerated: number
-  invoicesPaid: number
-  totalAmountPaid: number
-  pendingAmount: number
+  invoicesGenerated: string
+  invoicesPaid: string
+  totalAmountPaid: string
+  pendingAmount: string
   nextInvoiceStatus: string
 }
 
@@ -106,7 +106,7 @@ export interface PaidInvoice {
   customerName: string
   companyName: string
   invoiceNumber: string
-  invoiceAmount: number
+  invoiceAmount: string | number
   status: string
   paymentDate: string
   paymentMethod: string
@@ -120,7 +120,7 @@ export interface OpenInvoice {
   customerName: string
   companyName: string
   invoiceNumber: string
-  invoiceAmount: number
+  invoiceAmount: string | number
   status: string
   notes: string
   createdAt: string
@@ -131,7 +131,7 @@ export interface CreatePaidInvoiceInput {
   customerName: string
   companyName: string
   invoiceNumber: string
-  invoiceAmount: number
+  invoiceAmount: string
   status: string
   paymentDate: string
   paymentMethod: string
@@ -142,7 +142,7 @@ export interface CreateOpenInvoiceInput {
   customerName: string
   companyName: string
   invoiceNumber: string
-  invoiceAmount: number
+  invoiceAmount: string
   status: string
   notes: string
 }
@@ -154,7 +154,7 @@ export interface Expense {
   invoiceDate: string
   cardUsed: string
   cardOwner: string
-  amount: number
+  amount: string | number
   currency: string
   createdAt: string
 }
@@ -164,7 +164,7 @@ export interface CreateExpenseInput {
   invoiceDate: string
   cardUsed: string
   cardOwner: string
-  amount: number
+  amount: string
   currency: string
 }
 
@@ -172,7 +172,7 @@ export interface CreateInvoiceInput {
   onboardingId: string
   organization: string
   invoiceNumber: string
-  amount: number
+  amount: string
   status: InvoiceStatus
   dueDate: string
   issuedDate: string

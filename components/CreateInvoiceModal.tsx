@@ -5,7 +5,7 @@ import { Plus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { notify } from '@/lib/toast'
 import type { CreateInvoiceInput, Onboarding } from '@/types'
-import { formatDate, numberFieldDisplay, parseDecimalField, toNumber, type NumberFieldValue } from '@/utils/format'
+import { formatDate } from '@/utils/format'
 
 interface CreateInvoiceModalProps {
   open: boolean
@@ -18,7 +18,7 @@ const emptyForm = {
   onboardingId: '',
   organization: '',
   invoiceNumber: '',
-  amount: '' as NumberFieldValue,
+  amount: '',
   status: 'pending' as CreateInvoiceInput['status'],
   dueDate: '',
   issuedDate: '',
@@ -61,7 +61,7 @@ export function CreateInvoiceModal({
         onboardingId: form.onboardingId,
         organization: form.organization,
         invoiceNumber: form.invoiceNumber.trim(),
-        amount: toNumber(form.amount),
+        amount: form.amount.trim(),
         status: form.status,
         dueDate: form.dueDate,
         issuedDate: form.issuedDate,
@@ -136,14 +136,10 @@ export function CreateInvoiceModal({
             <label className="block space-y-2">
               <span className="wyra-label">Amount (USD)</span>
               <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={numberFieldDisplay(form.amount)}
-                onChange={(e) =>
-                  setForm({ ...form, amount: parseDecimalField(e.target.value) })
-                }
-                placeholder="0.00"
+                type="text"
+                value={form.amount}
+                onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                placeholder="Enter amount"
                 className="wyra-input"
               />
             </label>

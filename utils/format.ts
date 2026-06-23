@@ -17,6 +17,16 @@ export function formatCurrency(amount: number) {
   }).format(amount)
 }
 
+export function toFormText(value: string | number | undefined | null) {
+  if (value === null || value === undefined) return ''
+  return String(value)
+}
+
+export function displayFieldValue(value: string | number | undefined | null) {
+  if (value === null || value === undefined || value === '') return '—'
+  return String(value)
+}
+
 export function formatAmount(amount: number, currency: string) {
   try {
     return new Intl.NumberFormat('en-US', {

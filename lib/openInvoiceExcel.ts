@@ -5,7 +5,6 @@ import {
   matchesInvoiceNumberHeader,
   parseExcelDate,
   parseExcelSheet,
-  parseNumber,
   writeExcelFile,
   downloadExcelTemplate,
 } from '@/lib/excelUtils'
@@ -84,7 +83,7 @@ function emptyRecord(): CreateOpenInvoiceInput {
     customerName: '',
     companyName: '',
     invoiceNumber: '',
-    invoiceAmount: 0,
+    invoiceAmount: '',
     status: '',
     notes: '',
   }
@@ -96,11 +95,6 @@ function assignField(
   value: unknown,
 ) {
   if (value === null || value === undefined || value === '') return
-
-  if (field === 'invoiceAmount') {
-    record[field] = parseNumber(value)
-    return
-  }
 
   if (field === 'invoiceDate') {
     const parsed = parseExcelDate(value)
@@ -136,7 +130,7 @@ export function exportOpenInvoicesExcel(invoices: OpenInvoice[]) {
     'Customer Name': invoice.customerName ?? '',
     'Company Name': formatCompanyNames(invoice.companyName),
     'Invoice Number': resolveInvoiceNumber(invoice as unknown as Record<string, unknown>),
-    'Invoice Amount': invoice.invoiceAmount ?? 0,
+    'Invoice Amount': invoice.invoiceAmount != null ? String(invoice.invoiceAmount) : '',
     Status: invoice.status ?? '',
     Notes: invoice.notes ?? '',
   }))

@@ -14,7 +14,7 @@ import {
   parsePaidInvoicesExcel,
 } from '@/lib/paidInvoiceExcel'
 import type { CreatePaidInvoiceInput, PaidInvoice } from '@/types'
-import { formatCurrency, formatDate, formatCompanyNames, resolveInvoiceNumber } from '@/utils/format'
+import { displayFieldValue, formatDate, formatCompanyNames, resolveInvoiceNumber } from '@/utils/format'
 
 interface PaidInvoicesProps {
   invoices: PaidInvoice[]
@@ -62,7 +62,7 @@ function cellValue(invoice: PaidInvoice, column: (typeof columns)[number], index
     case 'Invoice Number':
       return resolveInvoiceNumber(invoice as unknown as Record<string, unknown>) || '—'
     case 'Invoice Amount':
-      return formatCurrency(invoice.invoiceAmount)
+      return displayFieldValue(invoice.invoiceAmount)
     case 'Status':
       return invoice.status || '—'
     case 'Payment Date':

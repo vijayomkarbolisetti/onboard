@@ -11,8 +11,7 @@ import {
   isSerialColumn,
   normalizeHeader,
   parseExcelDate,
-  parseInteger,
-  parseNumber,
+  formatTextCellValue,
 } from '@/lib/excelUtils'
 import type {
   CreateOnboardingInvoiceInput,
@@ -21,6 +20,11 @@ import type {
 } from '@/types'
 
 export { isExcelFile } from '@/lib/excelUtils'
+
+function toExportText(value: unknown) {
+  if (value === null || value === undefined || value === '') return ''
+  return String(value).trim()
+}
 
 export const ONBOARDING_INVOICE_HEADERS = [
   'S.No',
@@ -172,13 +176,13 @@ function emptyRecord(): CreateOnboardingInvoiceInput {
     pointOfContact: '',
     personEmailId: '',
     onBoardDate: '',
-    invoiceAmount: 0,
+    invoiceAmount: '',
     firstInvoiceDate: '',
     invoiceCycle: '',
-    invoicesGenerated: 0,
-    invoicesPaid: 0,
-    totalAmountPaid: 0,
-    pendingAmount: 0,
+    invoicesGenerated: '',
+    invoicesPaid: '',
+    totalAmountPaid: '',
+    pendingAmount: '',
     nextInvoiceStatus: '',
   }
 }
@@ -196,23 +200,13 @@ function assignField(
     return
   }
 
-  if (field === 'invoiceAmount' || field === 'totalAmountPaid' || field === 'pendingAmount') {
-    record[field] = parseNumber(value)
-    return
-  }
-
-  if (field === 'invoicesGenerated' || field === 'invoicesPaid') {
-    record[field] = parseInteger(value)
-    return
-  }
-
   if (field === 'onBoardDate' || field === 'firstInvoiceDate') {
     const parsed = parseExcelDate(value)
     if (parsed) record[field] = parsed
     return
   }
 
-  const text = String(value).trim()
+  const text = formatTextCellValue(value)
   if (text) record[field] = text as never
 }
 
@@ -333,13 +327,13 @@ export function exportOnboardingInvoicesExcel(records: OnboardingInvoiceRecord[]
     'Point Of Contact': record.pointOfContact,
     'Person Email Id': record.personEmailId,
     'On Board Date': formatExportDate(record.onBoardDate),
-    'Invoice Amount': record.invoiceAmount,
+    'Invoice Amount': toExportText(record.invoiceAmount),
     '1st Invoice Date': formatExportDate(record.firstInvoiceDate),
     'Invoice Cycle': record.invoiceCycle,
-    'No. Invoices Generated': record.invoicesGenerated,
-    'No. Invoices Paid': record.invoicesPaid,
-    'Total Amount Paid': record.totalAmountPaid ?? 0,
-    'Pending Amount': record.pendingAmount ?? 0,
+    'No. Invoices Generated': toExportText(record.invoicesGenerated),
+    'No. Invoices Paid': toExportText(record.invoicesPaid),
+    'Total Amount Paid': toExportText(record.totalAmountPaid),
+    'Pending Amount': toExportText(record.pendingAmount),
     'Next Invoice Status': record.nextInvoiceStatus,
   }))
 
@@ -386,18 +380,21 @@ export function normalizeOnboardingInvoiceRecord(
           '',
       ).trim(),
     totalAmountPaid:
-      record.totalAmountPaid ??
-      parseNumber(
-        raw['Total Amount Paid'] ??
-          raw.total_amount_paid ??
-          raw['Total Amt Paid'] ??
-          raw.totalAmtPaid,
-      ),
+      record.totalAmountPaid != null && record.totalAmountPaid !== ''
+        ? record.totalAmountPaid
+        : toExportText(
+            raw['Total Amount Paid'] ??
+              raw.total_amount_paid ??
+              raw['Total Amt Paid'] ??
+              raw.totalAmtPaid,
+          ),
     pendingAmount:
-      record.pendingAmount ??
-      parseNumber(raw['Pending Amount'] ?? raw.pending_amount ?? raw.pendingAmount),
+      record.pendingAmount != null && record.pendingAmount !== ''
+        ? record.pendingAmount
+        : toExportText(raw['Pending Amount'] ?? raw.pending_amount ?? raw.pendingAmount),
     invoiceAmount:
-      record.invoiceAmount ??
-      parseNumber(raw['Invoice Amount'] ?? raw.invoice_amount ?? raw.invoiceAmount),
+      record.invoiceAmount != null && record.invoiceAmount !== ''
+        ? record.invoiceAmount
+        : toExportText(raw['Invoice Amount'] ?? raw.invoice_amount ?? raw.invoiceAmount),
   }
 }

@@ -14,7 +14,7 @@ import {
   parseOpenInvoicesExcel,
 } from '@/lib/openInvoiceExcel'
 import type { CreateOpenInvoiceInput, OpenInvoice } from '@/types'
-import { formatCurrency, formatDate, formatCompanyNames, resolveInvoiceNumber } from '@/utils/format'
+import { displayFieldValue, formatDate, formatCompanyNames, resolveInvoiceNumber } from '@/utils/format'
 
 interface OpenInvoicesProps {
   invoices: OpenInvoice[]
@@ -65,7 +65,7 @@ function cellValue(
     case 'Invoice Number':
       return resolveInvoiceNumber(invoice as unknown as Record<string, unknown>) || '—'
     case 'Invoice Amount':
-      return formatCurrency(invoice.invoiceAmount)
+      return displayFieldValue(invoice.invoiceAmount)
     case 'Status':
       return invoice.status || '—'
     case 'Notes':
