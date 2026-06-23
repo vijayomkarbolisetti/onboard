@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   createOnboarding,
+  createOnboardingsBulk,
   deleteOnboarding,
   fetchOnboardings,
   updateOnboarding,
@@ -99,5 +100,12 @@ export function useOnboardings() {
     }
   }
 
-  return { onboardings, loading, error, reload: load, add, update, updateStatus, remove }
+  const importMany = async (inputs: CreateOnboardingInput[]) => {
+    if (inputs.length === 0) return []
+    await createOnboardingsBulk(inputs)
+    await load()
+    return inputs.length
+  }
+
+  return { onboardings, loading, error, reload: load, add, update, updateStatus, remove, importMany }
 }

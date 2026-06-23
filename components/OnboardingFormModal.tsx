@@ -23,6 +23,8 @@ interface OnboardingFormModalProps {
 
 const emptyForm = {
   organization: '',
+  committedMonths: '' as NumberFieldValue,
+  agreementSignedDate: '',
   noOfAiSdrs: '' as NumberFieldValue,
   onboardingDate: '',
   endDate: '',
@@ -44,6 +46,8 @@ function toFormValues(record: Onboarding): OnboardingFormState {
   return {
     ...emptyForm,
     organization: record.organization ?? '',
+    committedMonths: record.committedMonths ?? 0,
+    agreementSignedDate: record.agreementSignedDate ?? '',
     noOfAiSdrs: record.noOfAiSdrs ?? 0,
     onboardingDate: record.onboardingDate ?? '',
     endDate: record.endDate ?? '',
@@ -132,6 +136,8 @@ export function OnboardingFormModal({
     try {
       await onSubmit({
         organization: form.organization.trim(),
+        committedMonths: toNumber(form.committedMonths),
+        agreementSignedDate: form.agreementSignedDate,
         noOfAiSdrs: toNumber(form.noOfAiSdrs),
         onboardingDate: form.onboardingDate,
         endDate: form.endDate,
@@ -204,6 +210,30 @@ export function OnboardingFormModal({
                 className="wyra-input"
               />
             </label>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="block space-y-2">
+                <span className="wyra-label">Committed Months</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={numberFieldDisplay(form.committedMonths)}
+                  onChange={(e) => setNumberField('committedMonths', e.target.value)}
+                  placeholder="0"
+                  className="wyra-input"
+                />
+              </label>
+
+              <label className="block space-y-2">
+                <span className="wyra-label">Agreement Signed Date</span>
+                <input
+                  type="date"
+                  value={form.agreementSignedDate}
+                  onChange={(e) => setForm({ ...form, agreementSignedDate: e.target.value })}
+                  className="wyra-input"
+                />
+              </label>
+            </div>
 
             <label className="block space-y-2">
               <span className="wyra-label">No.of AI SDRs</span>

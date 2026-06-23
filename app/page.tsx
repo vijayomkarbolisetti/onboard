@@ -100,6 +100,9 @@ export default function TrackerPage() {
           }}
           onUpdate={onboardingState.update}
           onDelete={onboardingState.remove}
+          onImport={async (inputs) => {
+            await onboardingState.importMany(inputs)
+          }}
         />
       )}
 

@@ -1,11 +1,17 @@
 'use client'
 
-import { Building2, Download, FileSpreadsheet, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { Building2, Download, FileSpreadsheet, Pencil, Plus, Trash2, Upload } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { OnboardingFormModal } from '@/components/OnboardingFormModal'
 import { RowDetailsModal, type DetailField } from '@/components/RowDetailsModal'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
-import { exportOnboardingsExcel, downloadOnboardingTemplate } from '@/lib/onboardingExcel'
+import { isExcelFile } from '@/lib/excelUtils'
+import { notify } from '@/lib/toast'
+import {
+  exportOnboardingsExcel,
+  downloadOnboardingTemplate,
+  parseOnboardingsExcel,
+} from '@/lib/onboardingExcel'
 import type { CreateOnboardingInput, Onboarding } from '@/types'
 import {
   formatAmount,
@@ -22,11 +28,14 @@ interface OnboardingDetailsProps {
   onCreate: (input: CreateOnboardingInput) => Promise<void>
   onUpdate: (id: string, input: CreateOnboardingInput) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  onImport: (inputs: CreateOnboardingInput[]) => Promise<void>
 }
 
 const columns = [
   'S.No',
   'Organization',
+  'Committed Months',
+  'Agreement Signed Date',
   'No.of AI SDRs',
   'Onboarding Date',
   'End Date',
@@ -52,6 +61,10 @@ function cellValue(
       return index + 1
     case 'Organization':
       return item.organization || '—'
+    case 'Committed Months':
+      return item.committedMonths ?? 0
+    case 'Agreement Signed Date':
+      return formatDate(item.agreementSignedDate ?? '')
     case 'No.of AI SDRs':
       return item.noOfAiSdrs ?? 0
     case 'Onboarding Date':
@@ -114,16 +127,46 @@ export function OnboardingDetails({
   onCreate,
   onUpdate,
   onDelete,
+  onImport,
 }: OnboardingDetailsProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Onboarding | null>(null)
   const [viewing, setViewing] = useState<Onboarding | null>(null)
   const [viewingIndex, setViewingIndex] = useState(0)
+  const [importing, setImporting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
     onConfirm: onDelete,
     successMessage: 'Client tracker deleted',
     errorMessage: 'Failed to delete client tracker',
   })
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    if (!isExcelFile(file)) {
+      notify.error('Only Excel files (.xlsx, .xls) are supported')
+      return
+    }
+
+    setImporting(true)
+
+    try {
+      const { records, importedCount } = await parseOnboardingsExcel(file)
+      await onImport(records)
+      notify.success(`Imported ${importedCount} record(s) successfully.`)
+    } catch (err) {
+      notify.error(err instanceof Error ? err.message : 'Failed to import Excel file')
+    } finally {
+      setImporting(false)
+    }
+  }
 
   const actionToolbar = (
     <div className="flex flex-wrap items-center justify-end gap-2">
@@ -135,6 +178,16 @@ export function OnboardingDetails({
         className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover"
       >
         <FileSpreadsheet size={18} />
+      </button>
+      <button
+        type="button"
+        onClick={handleImportClick}
+        disabled={importing}
+        title={importing ? 'Importing...' : 'Import Excel'}
+        aria-label="Import Excel"
+        className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
+      >
+        <Upload size={18} />
       </button>
       <button
         type="button"
@@ -163,7 +216,7 @@ export function OnboardingDetails({
         <Building2 className="mx-auto text-theme-muted" size={40} />
         <h3 className="mt-4 text-lg font-semibold text-theme-fg">No campaigns yet</h3>
         <p className="mt-2 text-sm text-theme-muted">
-          Create your first client tracker to start monitoring leads
+          Create your first client tracker or import an Excel file (.xlsx, .xls)
         </p>
       </div>
     </div>
@@ -235,6 +288,14 @@ export function OnboardingDetails({
   return (
     <div className="space-y-4">
       {actionToolbar}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+        className="hidden"
+        onChange={handleFileChange}
+      />
 
       <div className="content-shell overflow-hidden">
         <div className="h-px bg-gradient-to-r from-transparent via-aqua/50 to-transparent" />

@@ -27,8 +27,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as CreateOnboardingInput
-    const record = await store.create(authResult.orgId, body)
+    const body = (await request.json()) as
+      | CreateOnboardingInput
+      | { records: CreateOnboardingInput[] }
+
+    if ('records' in body && Array.isArray(body.records)) {
+      const records = await store.createMany(authResult.orgId, body.records)
+      return NextResponse.json({ records })
+    }
+
+    const record = await store.create(authResult.orgId, body as CreateOnboardingInput)
     return NextResponse.json({ record })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to save onboarding'

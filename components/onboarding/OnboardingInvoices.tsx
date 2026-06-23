@@ -95,6 +95,12 @@ function agreementLinkDetail(url: string | undefined) {
   )
 }
 
+function subscriptionSummaryDetail(text: string | undefined) {
+  const trimmed = text?.trim()
+  if (!trimmed) return '—'
+  return <span className="whitespace-pre-wrap break-words">{trimmed}</span>
+}
+
 function cellValue(
   record: OnboardingInvoiceRecord,
   key: keyof OnboardingInvoiceRecord | 'sNo',
@@ -141,7 +147,9 @@ function buildOnboardingInvoiceDetailFields(
       value:
         col.key === 'agreementDocumentLink'
           ? agreementLinkDetail(record.agreementDocumentLink)
-          : cellValue(record, col.key, index),
+          : col.key === 'subscriptionSummary'
+            ? subscriptionSummaryDetail(record.subscriptionSummary)
+            : cellValue(record, col.key, index),
       fullWidth:
         col.key === 'subscriptionSummary' || col.key === 'agreementDocumentLink',
     }))

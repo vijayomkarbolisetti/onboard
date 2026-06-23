@@ -156,6 +156,30 @@ export async function deleteOnboarding(id: string): Promise<void> {
   await deleteOrgApiRecord(`/api/data/onboardings/${id}`, 'onboarding')
 }
 
+export async function createOnboardingsBulk(
+  inputs: CreateOnboardingInput[],
+): Promise<Onboarding[]> {
+  if (inputs.length === 0) {
+    return []
+  }
+
+  const response = await fetch('/api/data/onboardings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ records: inputs }),
+  })
+  const payload = (await response.json()) as {
+    records?: Onboarding[]
+    error?: string
+  }
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? 'Failed to import client tracker records')
+  }
+
+  return payload.records ?? []
+}
+
 export async function fetchInvoices(): Promise<Invoice[]> {
   const firestore = getDb()
   if (isFirebaseConfigured && firestore) {

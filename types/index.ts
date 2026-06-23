@@ -6,6 +6,8 @@ export interface Onboarding {
   id: string
   organizationId?: string
   organization: string
+  committedMonths?: number
+  agreementSignedDate?: string
   noOfAiSdrs?: number
   onboardingDate: string
   endDate: string
@@ -60,6 +62,8 @@ export interface Invoice {
 
 export interface CreateOnboardingInput {
   organization: string
+  committedMonths: number
+  agreementSignedDate: string
   noOfAiSdrs: number
   onboardingDate: string
   endDate: string
