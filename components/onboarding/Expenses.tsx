@@ -6,6 +6,7 @@ import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { WyraSelect } from '@/components/CompanyNameSelect'
 import { RowDetailsModal, type DetailField } from '@/components/RowDetailsModal'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
+import { useTeamRole } from '@/hooks/useTeamRole'
 import { EXPENSE_TABLE_COLUMNS, exportExpensesExcel, downloadExpenseTemplate, parseExpensesExcel } from '@/lib/expenseExcel'
 import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
@@ -73,6 +74,7 @@ export function Expenses({
   onDelete,
   onImport,
 }: ExpensesProps) {
+  const { canWrite } = useTeamRole()
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [viewing, setViewing] = useState<Expense | null>(null)
@@ -159,25 +161,29 @@ export function Expenses({
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => downloadExpenseTemplate()}
-          title="Download sample Excel"
-          aria-label="Download sample Excel"
-          className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover"
-        >
-          <FileSpreadsheet size={18} />
-        </button>
-        <button
-          type="button"
-          onClick={handleImportClick}
-          disabled={importing}
-          title={importing ? 'Importing...' : 'Import Excel'}
-          aria-label="Import Excel"
-          className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
-        >
-          <Upload size={18} />
-        </button>
+        {canWrite ? (
+          <button
+            type="button"
+            onClick={() => downloadExpenseTemplate()}
+            title="Download sample Excel"
+            aria-label="Download sample Excel"
+            className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover"
+          >
+            <FileSpreadsheet size={18} />
+          </button>
+        ) : null}
+        {canWrite ? (
+          <button
+            type="button"
+            onClick={handleImportClick}
+            disabled={importing}
+            title={importing ? 'Importing...' : 'Import Excel'}
+            aria-label="Import Excel"
+            className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
+          >
+            <Upload size={18} />
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => exportExpensesExcel(filteredExpenses)}
@@ -188,10 +194,12 @@ export function Expenses({
         >
           <Download size={18} />
         </button>
-        <button type="button" onClick={() => setCreateOpen(true)} className="btn-wyra">
-          <Plus size={16} />
-          Add Expense
-        </button>
+        {canWrite ? (
+          <button type="button" onClick={() => setCreateOpen(true)} className="btn-wyra">
+            <Plus size={16} />
+            Add Expense
+          </button>
+        ) : null}
       </div>
     </div>
   )
@@ -228,7 +236,9 @@ export function Expenses({
                 {col}
               </th>
             ))}
-            <th className="whitespace-nowrap px-4 py-3 font-semibold">Actions</th>
+            {canWrite ? (
+              <th className="whitespace-nowrap px-4 py-3 font-semibold">Actions</th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -246,30 +256,32 @@ export function Expenses({
                   {cellValue(expense, col, index)}
                 </td>
               ))}
-              <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(expense)}
-                    className="rounded-lg p-2 text-theme-muted hover:bg-aqua/10 hover:text-aqua"
-                    title="Edit"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openDeleteConfirm(expense.id, expense.toolName || 'this expense', {
-                        title: 'Delete expense?',
-                      })
-                    }
-                    className="rounded-lg p-2 text-theme-muted hover:bg-red-500/10 hover:text-red-400"
-                    title="Delete"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </td>
+              {canWrite ? (
+                <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(expense)}
+                      className="rounded-lg p-2 text-theme-muted hover:bg-aqua/10 hover:text-aqua"
+                      title="Edit"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openDeleteConfirm(expense.id, expense.toolName || 'this expense', {
+                          title: 'Delete expense?',
+                        })
+                      }
+                      className="rounded-lg p-2 text-theme-muted hover:bg-red-500/10 hover:text-red-400"
+                      title="Delete"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>
@@ -321,7 +333,7 @@ export function Expenses({
         fields={viewing ? buildExpenseDetailFields(viewing, viewingIndex) : []}
         onClose={() => setViewing(null)}
         onEdit={
-          viewing
+          canWrite && viewing
             ? () => {
                 setEditing(viewing)
                 setViewing(null)

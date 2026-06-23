@@ -5,6 +5,7 @@ import { useRef, useState } from 'react'
 import { OnboardingFormModal } from '@/components/OnboardingFormModal'
 import { RowDetailsModal, type DetailField } from '@/components/RowDetailsModal'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
+import { useTeamRole } from '@/hooks/useTeamRole'
 import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
 import {
@@ -129,6 +130,7 @@ export function OnboardingDetails({
   onDelete,
   onImport,
 }: OnboardingDetailsProps) {
+  const { canWrite } = useTeamRole()
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Onboarding | null>(null)
   const [viewing, setViewing] = useState<Onboarding | null>(null)
@@ -170,25 +172,29 @@ export function OnboardingDetails({
 
   const actionToolbar = (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      <button
-        type="button"
-        onClick={() => downloadOnboardingTemplate()}
-        title="Download sample Excel"
-        aria-label="Download sample Excel"
-        className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover"
-      >
-        <FileSpreadsheet size={18} />
-      </button>
-      <button
-        type="button"
-        onClick={handleImportClick}
-        disabled={importing}
-        title={importing ? 'Importing...' : 'Import Excel'}
-        aria-label="Import Excel"
-        className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
-      >
-        <Upload size={18} />
-      </button>
+      {canWrite ? (
+        <button
+          type="button"
+          onClick={() => downloadOnboardingTemplate()}
+          title="Download sample Excel"
+          aria-label="Download sample Excel"
+          className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover"
+        >
+          <FileSpreadsheet size={18} />
+        </button>
+      ) : null}
+      {canWrite ? (
+        <button
+          type="button"
+          onClick={handleImportClick}
+          disabled={importing}
+          title={importing ? 'Importing...' : 'Import Excel'}
+          aria-label="Import Excel"
+          className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
+        >
+          <Upload size={18} />
+        </button>
+      ) : null}
       <button
         type="button"
         onClick={() => exportOnboardingsExcel(onboardings)}
@@ -199,10 +205,12 @@ export function OnboardingDetails({
       >
         <Download size={18} />
       </button>
-      <button type="button" onClick={() => setCreateOpen(true)} className="btn-wyra">
-        <Plus size={16} />
-        Create Client Tracker
-      </button>
+      {canWrite ? (
+        <button type="button" onClick={() => setCreateOpen(true)} className="btn-wyra">
+          <Plus size={16} />
+          Create Client Tracker
+        </button>
+      ) : null}
     </div>
   )
 
@@ -230,7 +238,9 @@ export function OnboardingDetails({
                 {col}
               </th>
             ))}
-            <th className="whitespace-nowrap px-4 py-3 font-semibold">Actions</th>
+            {canWrite ? (
+              <th className="whitespace-nowrap px-4 py-3 font-semibold">Actions</th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -254,30 +264,32 @@ export function OnboardingDetails({
                   {cellValue(item, col, index)}
                 </td>
               ))}
-              <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(item)}
-                    className="rounded-lg p-2 text-theme-muted hover:bg-aqua/10 hover:text-aqua"
-                    title="Edit"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openDeleteConfirm(item.id, item.organization || 'Unnamed organization', {
-                        title: 'Delete client tracker?',
-                      })
-                    }
-                    className="rounded-lg p-2 text-theme-muted hover:bg-red-500/10 hover:text-red-400"
-                    title="Delete"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </td>
+              {canWrite ? (
+                <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(item)}
+                      className="rounded-lg p-2 text-theme-muted hover:bg-aqua/10 hover:text-aqua"
+                      title="Edit"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openDeleteConfirm(item.id, item.organization || 'Unnamed organization', {
+                          title: 'Delete client tracker?',
+                        })
+                      }
+                      className="rounded-lg p-2 text-theme-muted hover:bg-red-500/10 hover:text-red-400"
+                      title="Delete"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>
@@ -329,7 +341,7 @@ export function OnboardingDetails({
         fields={viewing ? buildOnboardingDetailFields(viewing, viewingIndex) : []}
         onClose={() => setViewing(null)}
         onEdit={
-          viewing
+          canWrite && viewing
             ? () => {
                 setEditing(viewing)
                 setViewing(null)

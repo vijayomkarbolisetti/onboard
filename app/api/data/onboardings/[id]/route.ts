@@ -10,7 +10,7 @@ type RouteContext = {
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
-  const authResult = await requireTeamAuth()
+  const authResult = await requireTeamAuth(true)
   if (!isTeamAuthContext(authResult)) {
     return authResult
   }
@@ -28,7 +28,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
-  const authResult = await requireTeamAuth()
+  const authResult = await requireTeamAuth(true)
   if (!isTeamAuthContext(authResult)) {
     return authResult
   }

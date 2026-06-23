@@ -22,7 +22,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const authResult = await requireTeamAuth()
+  const authResult = await requireTeamAuth(true)
   if (!isTeamAuthContext(authResult)) {
     return authResult
   }

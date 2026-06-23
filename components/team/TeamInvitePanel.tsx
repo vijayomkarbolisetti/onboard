@@ -60,6 +60,7 @@ export function TeamInvitePanel() {
   const [loadingTeam, setLoadingTeam] = useState(false)
   const [members, setMembers] = useState<TeamMember[]>([])
   const [invitations, setInvitations] = useState<TeamInvitation[]>([])
+  const [updatingRoleUserId, setUpdatingRoleUserId] = useState<string | null>(null)
 
   const isAdmin = membership?.role === 'org:admin'
 
@@ -174,6 +175,30 @@ export function TeamInvitePanel() {
       notify.error(err instanceof Error ? err.message : 'Failed to send invitation')
     } finally {
       setSendingInvite(false)
+    }
+  }
+
+  const handleRoleChange = async (userId: string, role: string) => {
+    setUpdatingRoleUserId(userId)
+
+    try {
+      const response = await fetch(`/api/team/members/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      })
+      const payload = await response.json()
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? 'Failed to update role')
+      }
+
+      notify.success('Role updated')
+      await loadTeamData()
+    } catch (err) {
+      notify.error(err instanceof Error ? err.message : 'Failed to update role')
+    } finally {
+      setUpdatingRoleUserId(null)
     }
   }
 
@@ -394,17 +419,37 @@ export function TeamInvitePanel() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <span
-                        className={cn(
-                          'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
-                          member.role === 'org:admin'
-                            ? 'bg-aqua/15 text-aqua'
-                            : 'bg-theme-surface text-theme-muted',
-                        )}
-                      >
-                        {member.role === 'org:admin' && <Shield size={12} />}
-                        {roleLabel(member.role)}
-                      </span>
+                      {isAdmin && member.userId && member.userId !== user?.id ? (
+                        <div
+                          className={cn(
+                            updatingRoleUserId === member.userId && 'pointer-events-none opacity-60',
+                          )}
+                        >
+                          <WyraSelect
+                            className="w-[124px]"
+                            value={member.role}
+                            onChange={(value) => void handleRoleChange(member.userId!, value)}
+                            allowEmpty={false}
+                            placeholder="Role"
+                            options={[
+                              { value: 'org:member', label: 'Member' },
+                              { value: 'org:admin', label: 'Admin' },
+                            ]}
+                          />
+                        </div>
+                      ) : (
+                        <span
+                          className={cn(
+                            'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
+                            member.role === 'org:admin'
+                              ? 'bg-aqua/15 text-aqua'
+                              : 'bg-theme-surface text-theme-muted',
+                          )}
+                        >
+                          {member.role === 'org:admin' && <Shield size={12} />}
+                          {roleLabel(member.role)}
+                        </span>
+                      )}
                       {isAdmin && member.userId && member.userId !== user?.id && (
                         <button
                           type="button"

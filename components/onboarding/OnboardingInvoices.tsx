@@ -5,6 +5,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { OnboardingInvoiceFormModal } from '@/components/OnboardingInvoiceFormModal'
 import { RowDetailsModal, type DetailField } from '@/components/RowDetailsModal'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
+import { useTeamRole } from '@/hooks/useTeamRole'
 import {
   exportOnboardingInvoicesExcel,
   downloadOnboardingInvoiceTemplate,
@@ -163,6 +164,7 @@ export function OnboardingInvoices({
   onDelete,
   onImport,
 }: OnboardingInvoicesProps) {
+  const { canWrite } = useTeamRole()
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<OnboardingInvoiceRecord | null>(null)
   const [viewing, setViewing] = useState<OnboardingInvoiceRecord | null>(null)
@@ -207,27 +209,35 @@ export function OnboardingInvoices({
     }
   }
 
+  const visibleColumns = canWrite
+    ? columns
+    : columns.filter((col) => col.key !== 'actions')
+
   const actionToolbar = (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      <button
-        type="button"
-        onClick={() => downloadOnboardingInvoiceTemplate()}
-        title="Download sample Excel"
-        aria-label="Download sample Excel"
-        className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover"
-      >
-        <FileSpreadsheet size={18} />
-      </button>
-      <button
-        type="button"
-        onClick={handleImportClick}
-        disabled={importing}
-        title={importing ? 'Importing...' : 'Import Excel'}
-        aria-label="Import Excel"
-        className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
-      >
-        <Upload size={18} />
-      </button>
+      {canWrite ? (
+        <button
+          type="button"
+          onClick={() => downloadOnboardingInvoiceTemplate()}
+          title="Download sample Excel"
+          aria-label="Download sample Excel"
+          className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover"
+        >
+          <FileSpreadsheet size={18} />
+        </button>
+      ) : null}
+      {canWrite ? (
+        <button
+          type="button"
+          onClick={handleImportClick}
+          disabled={importing}
+          title={importing ? 'Importing...' : 'Import Excel'}
+          aria-label="Import Excel"
+          className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
+        >
+          <Upload size={18} />
+        </button>
+      ) : null}
       <button
         type="button"
         onClick={handleExport}
@@ -238,10 +248,12 @@ export function OnboardingInvoices({
       >
         <Download size={18} />
       </button>
-      <button type="button" onClick={() => setCreateOpen(true)} className="btn-wyra">
-        <Plus size={16} />
-        Add Record
-      </button>
+      {canWrite ? (
+        <button type="button" onClick={() => setCreateOpen(true)} className="btn-wyra">
+          <Plus size={16} />
+          Add Record
+        </button>
+      ) : null}
     </div>
   )
 
@@ -264,7 +276,7 @@ export function OnboardingInvoices({
       <table className="wyra-data-table w-full min-w-[1800px] text-left text-sm">
         <thead className="bg-theme-elevated text-xs uppercase tracking-wider text-theme-muted">
           <tr>
-            {columns.map((col) => (
+            {visibleColumns.map((col) => (
               <th key={col.key} className="whitespace-nowrap px-4 py-3 font-semibold">
                 {col.label}
               </th>
@@ -281,7 +293,7 @@ export function OnboardingInvoices({
                 setViewingIndex(index)
               }}
             >
-              {columns.map((col) => {
+              {visibleColumns.map((col) => {
                 if (col.key === 'actions') {
                   return (
                     <td
@@ -383,7 +395,7 @@ export function OnboardingInvoices({
         fields={viewing ? buildOnboardingInvoiceDetailFields(viewing, viewingIndex) : []}
         onClose={() => setViewing(null)}
         onEdit={
-          viewing
+          canWrite && viewing
             ? () => {
                 setEditing(viewing)
                 setViewing(null)

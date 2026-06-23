@@ -5,6 +5,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { OpenInvoiceFormModal } from '@/components/OpenInvoiceFormModal'
 import { RowDetailsModal, type DetailField } from '@/components/RowDetailsModal'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
+import { useTeamRole } from '@/hooks/useTeamRole'
 import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
 import {
@@ -102,6 +103,7 @@ export function OpenInvoices({
   onDelete,
   onImport,
 }: OpenInvoicesProps) {
+  const { canWrite } = useTeamRole()
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<OpenInvoice | null>(null)
   const [viewing, setViewing] = useState<OpenInvoice | null>(null)
@@ -143,25 +145,29 @@ export function OpenInvoices({
 
   const actionToolbar = (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      <button
-        type="button"
-        onClick={() => downloadOpenInvoiceTemplate()}
-        title="Download sample Excel"
-        aria-label="Download sample Excel"
-        className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover"
-      >
-        <FileSpreadsheet size={18} />
-      </button>
-      <button
-        type="button"
-        onClick={handleImportClick}
-        disabled={importing}
-        title={importing ? 'Importing...' : 'Import Excel'}
-        aria-label="Import Excel"
-        className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
-      >
-        <Upload size={18} />
-      </button>
+      {canWrite ? (
+        <button
+          type="button"
+          onClick={() => downloadOpenInvoiceTemplate()}
+          title="Download sample Excel"
+          aria-label="Download sample Excel"
+          className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover"
+        >
+          <FileSpreadsheet size={18} />
+        </button>
+      ) : null}
+      {canWrite ? (
+        <button
+          type="button"
+          onClick={handleImportClick}
+          disabled={importing}
+          title={importing ? 'Importing...' : 'Import Excel'}
+          aria-label="Import Excel"
+          className="inline-flex items-center justify-center rounded-xl border border-theme p-2.5 text-theme-fg transition hover:bg-theme-hover disabled:opacity-60"
+        >
+          <Upload size={18} />
+        </button>
+      ) : null}
       <button
         type="button"
         onClick={() => exportOpenInvoicesExcel(invoices)}
@@ -172,10 +178,12 @@ export function OpenInvoices({
       >
         <Download size={18} />
       </button>
-      <button type="button" onClick={() => setCreateOpen(true)} className="btn-wyra">
-        <Plus size={16} />
-        Add Open Invoice
-      </button>
+      {canWrite ? (
+        <button type="button" onClick={() => setCreateOpen(true)} className="btn-wyra">
+          <Plus size={16} />
+          Add Open Invoice
+        </button>
+      ) : null}
     </div>
   )
 
@@ -203,7 +211,9 @@ export function OpenInvoices({
                 {col}
               </th>
             ))}
-            <th className="whitespace-nowrap px-4 py-3 font-semibold">Actions</th>
+            {canWrite ? (
+              <th className="whitespace-nowrap px-4 py-3 font-semibold">Actions</th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -228,34 +238,36 @@ export function OpenInvoices({
                   {cellValue(invoice, col, index)}
                 </td>
               ))}
-              <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(invoice)}
-                    className="rounded-lg p-2 text-theme-muted hover:bg-aqua/10 hover:text-aqua"
-                    title="Edit"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openDeleteConfirm(
-                        invoice.id,
-                        resolveInvoiceNumber(invoice as unknown as Record<string, unknown>) ||
-                        invoice.companyName ||
-                        'this invoice',
-                        { title: 'Delete open invoice?' },
-                      )
-                    }
-                    className="rounded-lg p-2 text-theme-muted hover:bg-red-500/10 hover:text-red-400"
-                    title="Delete"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </td>
+              {canWrite ? (
+                <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(invoice)}
+                      className="rounded-lg p-2 text-theme-muted hover:bg-aqua/10 hover:text-aqua"
+                      title="Edit"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openDeleteConfirm(
+                          invoice.id,
+                          resolveInvoiceNumber(invoice as unknown as Record<string, unknown>) ||
+                            invoice.companyName ||
+                            'this invoice',
+                          { title: 'Delete open invoice?' },
+                        )
+                      }
+                      className="rounded-lg p-2 text-theme-muted hover:bg-red-500/10 hover:text-red-400"
+                      title="Delete"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>
@@ -315,7 +327,7 @@ export function OpenInvoices({
         fields={viewing ? buildOpenInvoiceDetailFields(viewing, viewingIndex) : []}
         onClose={() => setViewing(null)}
         onEdit={
-          viewing
+          canWrite && viewing
             ? () => {
                 setEditing(viewing)
                 setViewing(null)
