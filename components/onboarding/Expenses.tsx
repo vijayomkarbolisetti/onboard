@@ -364,7 +364,7 @@ export function Expenses({
         ) : null}
         <button
           type="button"
-          onClick={() => exportExpensesExcel(filteredExpenses)}
+          onClick={() => void exportExpensesExcel(filteredExpenses)}
           disabled={filteredExpenses.length === 0}
           title="Export Excel"
           aria-label="Export Excel"

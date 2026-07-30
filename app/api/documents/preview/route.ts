@@ -19,6 +19,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const key = String(searchParams.get('key') ?? '').trim()
     const fileName = String(searchParams.get('fileName') ?? '').trim()
+    const expiresRaw = Number(searchParams.get('expiresIn') ?? '')
+    const expiresInSeconds =
+      Number.isFinite(expiresRaw) && expiresRaw > 0
+        ? Math.min(Math.floor(expiresRaw), 60 * 60 * 24 * 7)
+        : 60 * 15
 
     if (!key) {
       return NextResponse.json({ error: 'key is required' }, { status: 400 })
@@ -33,7 +38,11 @@ export async function GET(request: Request) {
       }
     }
 
-    const url = await createPreviewUrl({ key, fileName: fileName || undefined })
+    const url = await createPreviewUrl({
+      key,
+      fileName: fileName || undefined,
+      expiresInSeconds,
+    })
     return NextResponse.json({ url })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to create preview URL'

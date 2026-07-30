@@ -1,5 +1,6 @@
 import type { CreateOpenInvoiceInput, OpenInvoice } from '@/types'
 import {
+  formatDocumentsForExport,
   formatExportDate,
   formatTextCellValue,
   matchesInvoiceNumberHeader,
@@ -19,6 +20,7 @@ export const OPEN_INVOICE_HEADERS = [
   'Invoice Amount',
   'Status',
   'Sales Person Name',
+  'Documents',
   'Notes',
 ] as const
 
@@ -132,18 +134,23 @@ export async function parseOpenInvoicesExcel(file: File) {
   return { records, importedCount: records.length }
 }
 
-export function exportOpenInvoicesExcel(invoices: OpenInvoice[]) {
-  const rows = invoices.map((invoice, index) => ({
-    'S.No': index + 1,
-    'Invoice Date': formatExportDate(invoice.invoiceDate),
-    'Customer Name': invoice.customerName ?? '',
-    'Company Name': formatCompanyNames(invoice.companyName),
-    'Invoice Number': resolveInvoiceNumber(invoice as unknown as Record<string, unknown>),
-    'Invoice Amount': invoice.invoiceAmount != null ? String(invoice.invoiceAmount) : '',
-    Status: invoice.status ?? '',
-    'Sales Person Name': invoice.salesPersonName ?? '',
-    Notes: invoice.notes ?? '',
-  }))
+export async function exportOpenInvoicesExcel(invoices: OpenInvoice[]) {
+  const rows = []
+  for (let index = 0; index < invoices.length; index++) {
+    const invoice = invoices[index]
+    rows.push({
+      'S.No': index + 1,
+      'Invoice Date': formatExportDate(invoice.invoiceDate),
+      'Customer Name': invoice.customerName ?? '',
+      'Company Name': formatCompanyNames(invoice.companyName),
+      'Invoice Number': resolveInvoiceNumber(invoice as unknown as Record<string, unknown>),
+      'Invoice Amount': invoice.invoiceAmount != null ? String(invoice.invoiceAmount) : '',
+      Status: invoice.status ?? '',
+      'Sales Person Name': invoice.salesPersonName ?? '',
+      Documents: await formatDocumentsForExport(invoice.documents),
+      Notes: invoice.notes ?? '',
+    })
+  }
 
   const timestamp = new Date().toISOString().slice(0, 10)
   writeExcelFile('Open Invoices', OPEN_INVOICE_HEADERS, rows, `open-invoices-${timestamp}.xlsx`)

@@ -399,7 +399,43 @@ export function matchesInvoiceNumberHeader(header: string): boolean {
 
 export function formatExportDate(value: string | undefined) {
   if (!value) return ''
-  return value.slice(0, 10)
+  const iso = value.slice(0, 10)
+  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return iso
+  const [, year, month, day] = match
+  return `${day}-${month}-${year}`
+}
+
+/** Build pasteable document URLs for Excel export (signed S3 links). */
+export async function formatDocumentsForExport(
+  documents: { key: string; fileName: string }[] | undefined,
+  options?: { expiresInSeconds?: number },
+): Promise<string> {
+  if (!documents || documents.length === 0) return ''
+
+  const expiresInSeconds = options?.expiresInSeconds ?? 60 * 60 * 24 * 7
+  const links: string[] = []
+
+  for (const doc of documents) {
+    try {
+      const params = new URLSearchParams({
+        key: doc.key,
+        fileName: doc.fileName,
+        expiresIn: String(expiresInSeconds),
+      })
+      const res = await fetch(`/api/documents/preview?${params.toString()}`)
+      const payload = (await res.json()) as { url?: string }
+      if (res.ok && payload.url) {
+        links.push(payload.url)
+      } else {
+        links.push(doc.fileName)
+      }
+    } catch {
+      links.push(doc.fileName)
+    }
+  }
+
+  return links.join('\n')
 }
 
 function findHeaderRow(

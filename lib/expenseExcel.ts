@@ -1,5 +1,6 @@
 import type { CreateExpenseInput, Expense } from '@/types'
 import {
+  formatDocumentsForExport,
   formatExportDate,
   formatTextCellValue,
   parseExcelDate,
@@ -16,9 +17,18 @@ export const EXPENSE_HEADERS = [
   'Card Owner',
   'Amount',
   'Currency',
+  'Documents',
 ] as const
 
-export const EXPENSE_TABLE_COLUMNS = EXPENSE_HEADERS
+export const EXPENSE_TABLE_COLUMNS = [
+  'NO',
+  'Tool Name',
+  'Invoice Date',
+  'Card Used',
+  'Card Owner',
+  'Amount',
+  'Currency',
+] as const
 
 const HEADER_TO_FIELD: Record<string, keyof CreateExpenseInput> = {
   'tool name': 'toolName',
@@ -107,16 +117,21 @@ export async function parseExpensesExcel(file: File) {
   return { records, importedCount: records.length }
 }
 
-export function exportExpensesExcel(expenses: Expense[]) {
-  const rows = expenses.map((expense, index) => ({
-    NO: index + 1,
-    'Tool Name': expense.toolName ?? '',
-    'Invoice Date': formatExportDate(expense.invoiceDate),
-    'Card Used': expense.cardUsed ?? '',
-    'Card Owner': expense.cardOwner ?? '',
-    Amount: expense.amount != null ? String(expense.amount) : '',
-    Currency: expense.currency ?? 'USD',
-  }))
+export async function exportExpensesExcel(expenses: Expense[]) {
+  const rows = []
+  for (let index = 0; index < expenses.length; index++) {
+    const expense = expenses[index]
+    rows.push({
+      NO: index + 1,
+      'Tool Name': expense.toolName ?? '',
+      'Invoice Date': formatExportDate(expense.invoiceDate),
+      'Card Used': expense.cardUsed ?? '',
+      'Card Owner': expense.cardOwner ?? '',
+      Amount: expense.amount != null ? String(expense.amount) : '',
+      Currency: expense.currency ?? 'USD',
+      Documents: await formatDocumentsForExport(expense.documents),
+    })
+  }
 
   const timestamp = new Date().toISOString().slice(0, 10)
   writeExcelFile('Expenses', EXPENSE_HEADERS, rows, `expenses-${timestamp}.xlsx`)

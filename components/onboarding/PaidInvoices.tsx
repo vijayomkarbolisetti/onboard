@@ -172,7 +172,7 @@ export function PaidInvoices({
       ) : null}
       <button
         type="button"
-        onClick={() => exportPaidInvoicesExcel(invoices)}
+        onClick={() => void exportPaidInvoicesExcel(invoices)}
         disabled={invoices.length === 0}
         title="Export Excel"
         aria-label="Export Excel"

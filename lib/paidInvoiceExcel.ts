@@ -1,5 +1,6 @@
 import type { CreatePaidInvoiceInput, PaidInvoice } from '@/types'
 import {
+  formatDocumentsForExport,
   formatExportDate,
   formatTextCellValue,
   matchesInvoiceNumberHeader,
@@ -21,6 +22,7 @@ export const PAID_INVOICE_HEADERS = [
   'Payment Date',
   'Payment Method',
   'Sales Person Name',
+  'Documents',
 ] as const
 
 const HEADER_TO_FIELD: Record<string, keyof CreatePaidInvoiceInput> = {
@@ -134,19 +136,24 @@ export async function parsePaidInvoicesExcel(file: File) {
   return { records, importedCount: records.length }
 }
 
-export function exportPaidInvoicesExcel(invoices: PaidInvoice[]) {
-  const rows = invoices.map((invoice, index) => ({
-    'S.No': index + 1,
-    'Invoice Date': formatExportDate(invoice.invoiceDate),
-    'Customer Name': invoice.customerName ?? '',
-    'Company Name': formatCompanyNames(invoice.companyName),
-    'Invoice Number': resolveInvoiceNumber(invoice as unknown as Record<string, unknown>),
-    'Invoice Amount': invoice.invoiceAmount != null ? String(invoice.invoiceAmount) : '',
-    Status: invoice.status ?? '',
-    'Payment Date': formatExportDate(invoice.paymentDate),
-    'Payment Method': invoice.paymentMethod ?? '',
-    'Sales Person Name': invoice.salesPersonName ?? '',
-  }))
+export async function exportPaidInvoicesExcel(invoices: PaidInvoice[]) {
+  const rows = []
+  for (let index = 0; index < invoices.length; index++) {
+    const invoice = invoices[index]
+    rows.push({
+      'S.No': index + 1,
+      'Invoice Date': formatExportDate(invoice.invoiceDate),
+      'Customer Name': invoice.customerName ?? '',
+      'Company Name': formatCompanyNames(invoice.companyName),
+      'Invoice Number': resolveInvoiceNumber(invoice as unknown as Record<string, unknown>),
+      'Invoice Amount': invoice.invoiceAmount != null ? String(invoice.invoiceAmount) : '',
+      Status: invoice.status ?? '',
+      'Payment Date': formatExportDate(invoice.paymentDate),
+      'Payment Method': invoice.paymentMethod ?? '',
+      'Sales Person Name': invoice.salesPersonName ?? '',
+      Documents: await formatDocumentsForExport(invoice.documents),
+    })
+  }
 
   const timestamp = new Date().toISOString().slice(0, 10)
   writeExcelFile('Paid Invoices', PAID_INVOICE_HEADERS, rows, `paid-invoices-${timestamp}.xlsx`)
