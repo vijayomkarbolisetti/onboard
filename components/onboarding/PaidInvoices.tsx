@@ -3,6 +3,7 @@
 import { CircleDollarSign, Download, FileSpreadsheet, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { PaidInvoiceFormModal } from '@/components/PaidInvoiceFormModal'
+import { DocumentLinks } from '@/components/DocumentField'
 import { RowDetailsModal, type DetailField } from '@/components/RowDetailsModal'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import { useTeamRole } from '@/hooks/useTeamRole'
@@ -37,6 +38,8 @@ const columns = [
   'Status',
   'Payment Date',
   'Payment Method',
+  'Sales Person',
+  'Documents',
 ] as const
 
 function companyNameCell(value: string | undefined): ReactNode {
@@ -69,6 +72,10 @@ function cellValue(invoice: PaidInvoice, column: (typeof columns)[number], index
       return invoice.paymentDate ? formatDate(invoice.paymentDate) : '—'
     case 'Payment Method':
       return invoice.paymentMethod || '—'
+    case 'Sales Person':
+      return String(invoice.salesPersonName ?? '').trim() || '—'
+    case 'Documents':
+      return <DocumentLinks documents={invoice.documents} />
     default:
       return '—'
   }
@@ -82,8 +89,10 @@ function buildPaidInvoiceDetailFields(invoice: PaidInvoice, index: number): Deta
       value:
         col === 'Company Name'
           ? formatCompanyNames(invoice.companyName) || '—'
-          : cellValue(invoice, col, index),
-      fullWidth: col === 'Company Name',
+          : col === 'Documents'
+            ? <DocumentLinks documents={invoice.documents} />
+            : cellValue(invoice, col, index),
+      fullWidth: col === 'Company Name' || col === 'Documents',
     }))
 }
 
@@ -223,8 +232,9 @@ export function PaidInvoices({
                 <td
                   key={col}
                   className={`px-4 py-3 text-theme-body ${
-                    col === 'Company Name' ? 'max-w-[220px]' : 'whitespace-nowrap'
+                    col === 'Company Name' || col === 'Documents' ? 'max-w-[220px]' : 'whitespace-nowrap'
                   }`}
+                  onClick={col === 'Documents' ? (e) => e.stopPropagation() : undefined}
                 >
                   {cellValue(invoice, col, index)}
                 </td>

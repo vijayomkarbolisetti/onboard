@@ -37,6 +37,7 @@ const emptyForm: CreateOnboardingInvoiceInput = {
   totalAmountPaid: '',
   pendingAmount: '',
   nextInvoiceStatus: '',
+  salesPersonName: '',
 }
 
 const agreementOptions: { value: SaasMspAgreement; label: string }[] = [
@@ -63,6 +64,7 @@ function toFormValues(record: OnboardingInvoiceRecord): CreateOnboardingInvoiceI
     totalAmountPaid: toFormText(record.totalAmountPaid),
     pendingAmount: toFormText(record.pendingAmount),
     nextInvoiceStatus: record.nextInvoiceStatus ?? '',
+    salesPersonName: record.salesPersonName ?? '',
   }
 }
 
@@ -111,6 +113,7 @@ export function OnboardingInvoiceFormModal({
         totalAmountPaid: form.totalAmountPaid.trim(),
         pendingAmount: form.pendingAmount.trim(),
         nextInvoiceStatus: form.nextInvoiceStatus.trim(),
+        salesPersonName: form.salesPersonName.trim(),
       })
       notify.success(isEdit ? 'Record updated' : 'Record added')
       setForm(emptyForm)
@@ -170,6 +173,16 @@ export function OnboardingInvoiceFormModal({
                 value={form.companyName}
                 onChange={(e) => set('companyName', e.target.value)}
                 placeholder="Company name"
+              />
+            </Field>
+
+            <Field label="Sales Person Name" className="sm:col-span-2">
+              <input
+                type="text"
+                className="wyra-input"
+                value={form.salesPersonName}
+                onChange={(e) => set('salesPersonName', e.target.value)}
+                placeholder="Sales person name (optional)"
               />
             </Field>
 

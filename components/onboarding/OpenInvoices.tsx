@@ -3,6 +3,7 @@
 import { Download, FileSpreadsheet, FileText, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { OpenInvoiceFormModal } from '@/components/OpenInvoiceFormModal'
+import { DocumentLinks } from '@/components/DocumentField'
 import { RowDetailsModal, type DetailField } from '@/components/RowDetailsModal'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import { useTeamRole } from '@/hooks/useTeamRole'
@@ -35,6 +36,8 @@ const columns = [
   'Invoice Number',
   'Invoice Amount',
   'Status',
+  'Sales Person',
+  'Documents',
   'Notes',
 ] as const
 
@@ -68,6 +71,10 @@ function cellValue(
       return displayFieldValue(invoice.invoiceAmount)
     case 'Status':
       return invoice.status || '—'
+    case 'Sales Person':
+      return String(invoice.salesPersonName ?? '').trim() || '—'
+    case 'Documents':
+      return <DocumentLinks documents={invoice.documents} />
     case 'Notes':
       return (
         <span className="block max-w-[200px] truncate" title={invoice.notes}>
@@ -89,8 +96,10 @@ function buildOpenInvoiceDetailFields(invoice: OpenInvoice, index: number): Deta
           ? formatCompanyNames(invoice.companyName) || '—'
           : col === 'Notes'
             ? invoice.notes || '—'
-            : cellValue(invoice, col, index),
-      fullWidth: col === 'Notes' || col === 'Company Name',
+            : col === 'Documents'
+              ? <DocumentLinks documents={invoice.documents} />
+              : cellValue(invoice, col, index),
+      fullWidth: col === 'Notes' || col === 'Company Name' || col === 'Documents',
     }))
 }
 
@@ -230,10 +239,11 @@ export function OpenInvoices({
                 <td
                   key={col}
                   className={`px-4 py-3 text-theme-body ${
-                    col === 'Company Name' || col === 'Notes'
+                    col === 'Company Name' || col === 'Notes' || col === 'Documents'
                       ? 'max-w-[220px]'
                       : 'whitespace-nowrap'
                   }`}
+                  onClick={col === 'Documents' ? (e) => e.stopPropagation() : undefined}
                 >
                   {cellValue(invoice, col, index)}
                 </td>

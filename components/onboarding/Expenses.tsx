@@ -1,17 +1,50 @@
 'use client'
 
-import { Download, FileSpreadsheet, Pencil, Plus, Trash2, Upload, Wallet } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileSpreadsheet,
+  Filter,
+  Pencil,
+  Plus,
+  Trash2,
+  Upload,
+  Wallet,
+  X,
+} from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { WyraSelect } from '@/components/CompanyNameSelect'
 import { RowDetailsModal, type DetailField } from '@/components/RowDetailsModal'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import { useTeamRole } from '@/hooks/useTeamRole'
-import { EXPENSE_TABLE_COLUMNS, exportExpensesExcel, downloadExpenseTemplate, parseExpensesExcel } from '@/lib/expenseExcel'
+import {
+  EXPENSE_TABLE_COLUMNS,
+  exportExpensesExcel,
+  downloadExpenseTemplate,
+  parseExpensesExcel,
+} from '@/lib/expenseExcel'
 import { isExcelFile } from '@/lib/excelUtils'
 import { notify } from '@/lib/toast'
 import type { CreateExpenseInput, Expense } from '@/types'
 import { displayFieldValue, formatDate } from '@/utils/format'
+import { DocumentLinks } from '@/components/DocumentField'
+
+const PAGE_SIZE = 20
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+// Parse YYYY-MM-DD directly — avoids UTC-to-local timezone shift from new Date()
+function parseDateParts(dateStr: string): { year: string; month: string } | null {
+  if (!dateStr) return null
+  const match = dateStr.match(/^(\d{4})-(\d{2})/)
+  if (match) return { year: match[1], month: match[2] }
+  return null
+}
 
 interface ExpensesProps {
   expenses: Expense[]
@@ -53,10 +86,125 @@ function cellValue(
 }
 
 function buildExpenseDetailFields(expense: Expense, index: number): DetailField[] {
-  return EXPENSE_TABLE_COLUMNS.map((col) => ({
-    label: col,
-    value: cellValue(expense, col, index),
-  }))
+  return [
+    ...EXPENSE_TABLE_COLUMNS.map((col) => ({
+      label: col,
+      value: cellValue(expense, col, index),
+    })),
+    {
+      label: 'Documents',
+      value: <DocumentLinks documents={expense.documents} />,
+      fullWidth: true,
+    },
+  ]
+}
+
+/* ── Invoice Date column-header filter popover ── */
+interface DateFilterPopoverProps {
+  monthFilter: string
+  yearFilter: string
+  availableYears: string[]
+  onMonthChange: (v: string) => void
+  onYearChange: (v: string) => void
+  onClear: () => void
+  isActive: boolean
+}
+
+function DateFilterPopover({
+  monthFilter,
+  yearFilter,
+  availableYears,
+  onMonthChange,
+  onYearChange,
+  onClear,
+  isActive,
+}: DateFilterPopoverProps) {
+  const [open, setOpen] = useState(false)
+  const popoverRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      const target = e.target as HTMLElement | null
+      if (target?.closest('.wyra-dropdown-panel')) {
+        return
+      }
+      if (
+        popoverRef.current && !popoverRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  return (
+    <span className="relative inline-flex items-center">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title="Filter by date"
+        className={`ml-1 rounded p-0.5 transition ${
+          isActive
+            ? 'text-aqua'
+            : 'text-theme-muted hover:text-theme-fg'
+        }`}
+      >
+        <Filter size={12} />
+      </button>
+
+      {open && (
+        <div
+          ref={popoverRef}
+          className="absolute left-0 top-full z-50 mt-1 w-56 rounded-xl border border-theme bg-theme-modal p-3 shadow-lg"
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-theme-muted">
+              Filter by Date
+            </span>
+            {isActive && (
+              <button
+                type="button"
+                onClick={() => { onClear(); setOpen(false) }}
+                className="flex items-center gap-1 text-xs text-aqua hover:underline"
+              >
+                <X size={11} /> Clear
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-theme-muted">Month</label>
+              <WyraSelect
+                value={monthFilter}
+                onChange={onMonthChange}
+                placeholder="All months"
+                options={MONTH_NAMES.map((name, i) => ({
+                  value: String(i + 1).padStart(2, '0'),
+                  label: name,
+                }))}
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-theme-muted">Year</label>
+              <WyraSelect
+                value={yearFilter}
+                onChange={onYearChange}
+                placeholder="All years"
+                options={availableYears.map((y) => ({ value: y, label: y }))}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </span>
+  )
 }
 
 export function Expenses({
@@ -74,6 +222,9 @@ export function Expenses({
   const [viewingIndex, setViewingIndex] = useState(0)
   const [importing, setImporting] = useState(false)
   const [toolNameFilter, setToolNameFilter] = useState('')
+  const [monthFilter, setMonthFilter] = useState('')
+  const [yearFilter, setYearFilter] = useState('')
+  const [page, setPage] = useState(1)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { openDeleteConfirm, deleteModal } = useDeleteConfirm({
     onConfirm: onDelete,
@@ -89,10 +240,44 @@ export function Expenses({
     [expenses],
   )
 
+  const availableYears = useMemo(() => {
+    const years = new Set<string>()
+    for (const e of expenses) {
+      const parts = parseDateParts(e.invoiceDate)
+      if (parts) years.add(parts.year)
+    }
+    return Array.from(years).sort((a, b) => Number(b) - Number(a))
+  }, [expenses])
+
   const filteredExpenses = useMemo(() => {
-    if (!toolNameFilter) return expenses
-    return expenses.filter((expense) => expense.toolName === toolNameFilter)
-  }, [expenses, toolNameFilter])
+    return expenses.filter((expense) => {
+      if (toolNameFilter && expense.toolName !== toolNameFilter) return false
+      if (monthFilter || yearFilter) {
+        const parts = parseDateParts(expense.invoiceDate)
+        if (!parts) return false
+        if (monthFilter && parts.month !== monthFilter) return false
+        if (yearFilter && parts.year !== yearFilter) return false
+      }
+      return true
+    })
+  }, [expenses, toolNameFilter, monthFilter, yearFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filteredExpenses.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const pagedExpenses = filteredExpenses.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
+  const dateFilterActive = Boolean(monthFilter || yearFilter)
+
+  const handleDateFilterChange = (setter: (v: string) => void) => (v: string) => {
+    setter(v)
+    setPage(1)
+  }
+
+  const clearDateFilter = () => {
+    setMonthFilter('')
+    setYearFilter('')
+    setPage(1)
+  }
 
   const handleImportClick = () => {
     fileInputRef.current?.click()
@@ -144,7 +329,7 @@ export function Expenses({
           id="expense-tool-filter"
           className="min-w-0 flex-1"
           value={toolNameFilter}
-          onChange={setToolNameFilter}
+          onChange={(v) => { setToolNameFilter(v); setPage(1) }}
           placeholder="All tools"
           options={toolNameOptions.map((toolName) => ({
             value: toolName,
@@ -197,27 +382,20 @@ export function Expenses({
     </div>
   )
 
+  const emptyMessage =
+    expenses.length === 0
+      ? {
+          title: 'No expenses yet',
+          description: 'Add records manually or import an Excel file (.xlsx, .xls)',
+        }
+      : {
+          title: 'No matching expenses',
+          description: 'Try adjusting the filters',
+        }
+
   const tablePanel = loading ? (
     <div className="p-5 sm:p-7">
       <div className="h-64 animate-pulse rounded-2xl border border-theme bg-theme-hover" />
-    </div>
-  ) : expenses.length === 0 ? (
-    <div className="p-5 sm:p-7">
-      <div className="rounded-2xl border border-dashed border-theme-strong px-6 py-16 text-center">
-        <Wallet className="mx-auto text-theme-muted" size={40} />
-        <h3 className="mt-4 text-lg font-semibold text-theme-fg">No expenses yet</h3>
-        <p className="mt-2 text-sm text-theme-muted">
-          Add records manually or import an Excel file (.xlsx, .xls)
-        </p>
-      </div>
-    </div>
-  ) : filteredExpenses.length === 0 ? (
-    <div className="p-5 sm:p-7">
-      <div className="rounded-2xl border border-dashed border-theme-strong px-6 py-16 text-center">
-        <Wallet className="mx-auto text-theme-muted" size={40} />
-        <h3 className="mt-4 text-lg font-semibold text-theme-fg">No matching expenses</h3>
-        <p className="mt-2 text-sm text-theme-muted">Try a different Tool Name filter</p>
-      </div>
     </div>
   ) : (
     <div className="overflow-x-auto">
@@ -226,59 +404,154 @@ export function Expenses({
           <tr>
             {EXPENSE_TABLE_COLUMNS.map((col) => (
               <th key={col} className="whitespace-nowrap px-4 py-3 font-semibold">
-                {col}
+                {col === 'Invoice Date' ? (
+                  <span className="inline-flex items-center gap-0.5">
+                    Invoice Date
+                    <DateFilterPopover
+                      monthFilter={monthFilter}
+                      yearFilter={yearFilter}
+                      availableYears={availableYears}
+                      onMonthChange={handleDateFilterChange(setMonthFilter)}
+                      onYearChange={handleDateFilterChange(setYearFilter)}
+                      onClear={clearDateFilter}
+                      isActive={dateFilterActive}
+                    />
+                  </span>
+                ) : (
+                  col
+                )}
               </th>
             ))}
+            <th className="whitespace-nowrap px-4 py-3 font-semibold">Documents</th>
             {canWrite ? (
               <th className="whitespace-nowrap px-4 py-3 font-semibold">Actions</th>
             ) : null}
           </tr>
         </thead>
         <tbody>
-          {filteredExpenses.map((expense, index) => (
-            <tr
-              key={expense.id}
-              className="cursor-pointer transition hover:bg-theme-hover"
-              onClick={() => {
-                setViewing(expense)
-                setViewingIndex(index)
-              }}
-            >
-              {EXPENSE_TABLE_COLUMNS.map((col) => (
-                <td key={col} className="whitespace-nowrap px-4 py-3 text-theme-body">
-                  {cellValue(expense, col, index)}
-                </td>
-              ))}
-              {canWrite ? (
-                <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setEditing(expense)}
-                      className="rounded-lg p-2 text-theme-muted hover:bg-aqua/10 hover:text-aqua"
-                      title="Edit"
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openDeleteConfirm(expense.id, expense.toolName || 'this expense', {
-                          title: 'Delete expense?',
-                        })
-                      }
-                      className="rounded-lg p-2 text-theme-muted hover:bg-red-500/10 hover:text-red-400"
-                      title="Delete"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </td>
-              ) : null}
+          {filteredExpenses.length === 0 ? (
+            <tr>
+              <td
+                colSpan={EXPENSE_TABLE_COLUMNS.length + 1 + (canWrite ? 1 : 0)}
+                className="px-6 py-16"
+              >
+                <div className="rounded-2xl border border-dashed border-theme-strong px-6 py-16 text-center">
+                  <Wallet className="mx-auto text-theme-muted" size={40} />
+                  <h3 className="mt-4 text-lg font-semibold text-theme-fg">{emptyMessage.title}</h3>
+                  <p className="mt-2 text-sm text-theme-muted">{emptyMessage.description}</p>
+                </div>
+              </td>
             </tr>
-          ))}
+          ) : (
+            pagedExpenses.map((expense, pageIndex) => {
+              const globalIndex = (safePage - 1) * PAGE_SIZE + pageIndex
+              return (
+                <tr
+                  key={expense.id}
+                  className="cursor-pointer transition hover:bg-theme-hover"
+                  onClick={() => {
+                    setViewing(expense)
+                    setViewingIndex(globalIndex)
+                  }}
+                >
+                  {EXPENSE_TABLE_COLUMNS.map((col) => (
+                    <td key={col} className="whitespace-nowrap px-4 py-3 text-theme-body">
+                      {cellValue(expense, col, globalIndex)}
+                    </td>
+                  ))}
+                  <td
+                    className="px-4 py-3 text-theme-body"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <DocumentLinks documents={expense.documents} />
+                  </td>
+                  {canWrite ? (
+                    <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditing(expense)}
+                          className="rounded-lg p-2 text-theme-muted hover:bg-aqua/10 hover:text-aqua"
+                          title="Edit"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openDeleteConfirm(expense.id, expense.toolName || 'this expense', {
+                              title: 'Delete expense?',
+                            })
+                          }
+                          className="rounded-lg p-2 text-theme-muted hover:bg-red-500/10 hover:text-red-400"
+                          title="Delete"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  ) : null}
+                </tr>
+              )
+            })
+          )}
         </tbody>
       </table>
+
+      <div className="flex items-center justify-between border-t border-theme px-4 py-3">
+        <p className="text-sm text-theme-muted">
+          {filteredExpenses.length === 0
+            ? 'No results'
+            : `Showing ${(safePage - 1) * PAGE_SIZE + 1}–${Math.min(safePage * PAGE_SIZE, filteredExpenses.length)} of ${filteredExpenses.length}`}
+        </p>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+              className="inline-flex items-center justify-center rounded-lg border border-theme p-1.5 text-theme-muted transition hover:bg-theme-hover hover:text-theme-fg disabled:opacity-40"
+              aria-label="Previous page"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+              .reduce<(number | '…')[]>((acc, p, i, arr) => {
+                if (i > 0 && typeof arr[i - 1] === 'number' && (p as number) - (arr[i - 1] as number) > 1) acc.push('…')
+                acc.push(p)
+                return acc
+              }, [])
+              .map((p, i) =>
+                p === '…' ? (
+                  <span key={`ellipsis-${i}`} className="px-1 text-sm text-theme-muted">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPage(p as number)}
+                    className={`min-w-8 rounded-lg border px-2 py-1 text-sm font-medium transition ${
+                      safePage === p
+                        ? 'border-aqua bg-aqua/10 text-aqua'
+                        : 'border-theme text-theme-muted hover:bg-theme-hover hover:text-theme-fg'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ),
+              )}
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+              className="inline-flex items-center justify-center rounded-lg border border-theme p-1.5 text-theme-muted transition hover:bg-theme-hover hover:text-theme-fg disabled:opacity-40"
+              aria-label="Next page"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 

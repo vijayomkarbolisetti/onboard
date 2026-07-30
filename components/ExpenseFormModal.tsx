@@ -1,10 +1,11 @@
 'use client'
 
 import { WyraSelect } from '@/components/CompanyNameSelect'
+import { DocumentField } from '@/components/DocumentField'
 import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { notify } from '@/lib/toast'
-import type { CreateExpenseInput, Expense } from '@/types'
+import type { CreateExpenseInput, Expense, StoredDocument } from '@/types'
 import { toFormText } from '@/utils/format'
 
 interface ExpenseFormModalProps {
@@ -22,6 +23,7 @@ const emptyForm: CreateExpenseInput = {
   cardOwner: '',
   amount: '',
   currency: 'USD',
+  documents: [],
 }
 
 const currencyOptions = ['USD', 'EUR', 'GBP', 'INR', 'AUD', 'CAD']
@@ -47,6 +49,7 @@ export function ExpenseFormModal({
         cardOwner: initial.cardOwner,
         amount: toFormText(initial.amount),
         currency: initial.currency,
+        documents: initial.documents ?? [],
       })
     } else {
       setForm(emptyForm)
@@ -67,6 +70,7 @@ export function ExpenseFormModal({
         cardOwner: form.cardOwner.trim(),
         amount: form.amount.trim(),
         currency: form.currency.trim() || 'USD',
+        documents: form.documents ?? [],
       })
       notify.success(isEdit ? 'Expense updated' : 'Expense added')
       setForm(emptyForm)
@@ -84,7 +88,7 @@ export function ExpenseFormModal({
     onClose()
   }
 
-  const set = (key: keyof CreateExpenseInput, value: string) => {
+  const set = (key: keyof CreateExpenseInput, value: string | StoredDocument[]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -171,6 +175,16 @@ export function ExpenseFormModal({
                 options={currencyOptions.map((code) => ({ value: code, label: code }))}
               />
             </Field>
+
+            <div className="sm:col-span-2 space-y-2">
+              <span className="wyra-label">Documents</span>
+              <DocumentField
+                folder="expenses"
+                documents={form.documents ?? []}
+                onChange={(documents) => set('documents', documents)}
+                disabled={submitting}
+              />
+            </div>
           </div>
 
           <div className="mt-6 flex justify-end gap-3">

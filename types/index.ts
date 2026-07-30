@@ -44,6 +44,7 @@ export interface OnboardingInvoiceRecord {
   totalAmountPaid?: string | number
   pendingAmount?: string | number
   nextInvoiceStatus: string
+  salesPersonName?: string
   createdAt: string
 }
 
@@ -97,6 +98,15 @@ export interface CreateOnboardingInvoiceInput {
   totalAmountPaid: string
   pendingAmount: string
   nextInvoiceStatus: string
+  salesPersonName: string
+}
+
+export interface StoredDocument {
+  key: string
+  fileName: string
+  contentType: string
+  size: number
+  uploadedAt: string
 }
 
 export interface PaidInvoice {
@@ -110,6 +120,8 @@ export interface PaidInvoice {
   status: string
   paymentDate: string
   paymentMethod: string
+  salesPersonName?: string
+  documents?: StoredDocument[]
   createdAt: string
 }
 
@@ -123,6 +135,8 @@ export interface OpenInvoice {
   invoiceAmount: string | number
   status: string
   notes: string
+  salesPersonName?: string
+  documents?: StoredDocument[]
   createdAt: string
 }
 
@@ -135,6 +149,8 @@ export interface CreatePaidInvoiceInput {
   status: string
   paymentDate: string
   paymentMethod: string
+  salesPersonName: string
+  documents?: StoredDocument[]
 }
 
 export interface CreateOpenInvoiceInput {
@@ -145,6 +161,8 @@ export interface CreateOpenInvoiceInput {
   invoiceAmount: string
   status: string
   notes: string
+  salesPersonName: string
+  documents?: StoredDocument[]
 }
 
 export interface Expense {
@@ -156,6 +174,7 @@ export interface Expense {
   cardOwner: string
   amount: string | number
   currency: string
+  documents?: StoredDocument[]
   createdAt: string
 }
 
@@ -166,6 +185,7 @@ export interface CreateExpenseInput {
   cardOwner: string
   amount: string
   currency: string
+  documents?: StoredDocument[]
 }
 
 export interface CreateInvoiceInput {

@@ -18,6 +18,7 @@ export const OPEN_INVOICE_HEADERS = [
   'Invoice Number',
   'Invoice Amount',
   'Status',
+  'Sales Person Name',
   'Notes',
 ] as const
 
@@ -39,6 +40,10 @@ const HEADER_TO_FIELD: Record<string, keyof CreateOpenInvoiceInput> = {
   notes: 'notes',
   note: 'notes',
   remarks: 'notes',
+  'sales person name': 'salesPersonName',
+  'salesperson name': 'salesPersonName',
+  'sales person': 'salesPersonName',
+  salesperson: 'salesPersonName',
 }
 
 function isSerialColumn(header: string) {
@@ -73,6 +78,8 @@ function resolveField(header: string): keyof CreateOpenInvoiceInput | null {
   if (normalized.includes('invoice') && normalized.includes('date')) return 'invoiceDate'
   if (normalized === 'status') return 'status'
   if (normalized.includes('note') || normalized.includes('remark')) return 'notes'
+  if (normalized.includes('sales') && normalized.includes('person')) return 'salesPersonName'
+  if (normalized === 'salesperson') return 'salesPersonName'
 
   return null
 }
@@ -86,6 +93,7 @@ function emptyRecord(): CreateOpenInvoiceInput {
     invoiceAmount: '',
     status: '',
     notes: '',
+    salesPersonName: '',
   }
 }
 
@@ -95,6 +103,7 @@ function assignField(
   value: unknown,
 ) {
   if (value === null || value === undefined || value === '') return
+  if (field === 'documents') return
 
   if (field === 'invoiceDate') {
     const parsed = parseExcelDate(value)
@@ -132,6 +141,7 @@ export function exportOpenInvoicesExcel(invoices: OpenInvoice[]) {
     'Invoice Number': resolveInvoiceNumber(invoice as unknown as Record<string, unknown>),
     'Invoice Amount': invoice.invoiceAmount != null ? String(invoice.invoiceAmount) : '',
     Status: invoice.status ?? '',
+    'Sales Person Name': invoice.salesPersonName ?? '',
     Notes: invoice.notes ?? '',
   }))
 

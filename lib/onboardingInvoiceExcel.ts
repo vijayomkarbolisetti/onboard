@@ -45,6 +45,7 @@ export const ONBOARDING_INVOICE_HEADERS = [
   'Total Amount Paid',
   'Pending Amount',
   'Next Invoice Status',
+  'Sales Person Name',
 ] as const
 
 const HEADER_TO_FIELD: Record<string, keyof CreateOnboardingInvoiceInput> = {
@@ -84,6 +85,10 @@ const HEADER_TO_FIELD: Record<string, keyof CreateOnboardingInvoiceInput> = {
   'paid amount total': 'totalAmountPaid',
   'pending amount': 'pendingAmount',
   'next invoice status': 'nextInvoiceStatus',
+  'sales person name': 'salesPersonName',
+  'salesperson name': 'salesPersonName',
+  'sales person': 'salesPersonName',
+  salesperson: 'salesPersonName',
 }
 
 function isTotalAmountPaidHeader(normalized: string) {
@@ -152,6 +157,8 @@ function resolveField(header: string): keyof CreateOnboardingInvoiceInput | null
   if (normalized.includes('paid') && normalized.includes('invoice')) return 'invoicesPaid'
   if (normalized.includes('next') && normalized.includes('status')) return 'nextInvoiceStatus'
   if (normalized === 'sponsor') return 'sponsor'
+  if (normalized.includes('sales') && normalized.includes('person')) return 'salesPersonName'
+  if (normalized === 'salesperson') return 'salesPersonName'
 
   return null
 }
@@ -184,6 +191,7 @@ function emptyRecord(): CreateOnboardingInvoiceInput {
     totalAmountPaid: '',
     pendingAmount: '',
     nextInvoiceStatus: '',
+    salesPersonName: '',
   }
 }
 
@@ -335,6 +343,7 @@ export function exportOnboardingInvoicesExcel(records: OnboardingInvoiceRecord[]
     'Total Amount Paid': toExportText(record.totalAmountPaid),
     'Pending Amount': toExportText(record.pendingAmount),
     'Next Invoice Status': record.nextInvoiceStatus,
+    'Sales Person Name': record.salesPersonName ?? '',
   }))
 
   const worksheet =

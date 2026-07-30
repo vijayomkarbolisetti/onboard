@@ -30,6 +30,7 @@ interface OnboardingInvoicesProps {
 const columns: { key: keyof OnboardingInvoiceRecord | 'actions' | 'sNo'; label: string }[] = [
   { key: 'sNo', label: 'S.No' },
   { key: 'companyName', label: 'Company Name' },
+  { key: 'salesPersonName', label: 'Sales Person' },
   { key: 'subscriptionSummary', label: 'Subscription Summary' },
   { key: 'agreementDocumentLink', label: 'Agreement Document Link' },
   { key: 'saasMspAgreement', label: 'Saas / MSP Agreement' },
@@ -110,6 +111,10 @@ function cellValue(
   if (key === 'sNo') return index + 1
 
   const val = record[key]
+  if (key === 'salesPersonName') {
+    const text = String(val ?? '').trim()
+    return text || '—'
+  }
   if (key === 'onBoardDate' || key === 'firstInvoiceDate') {
     return formatDate(String(val))
   }

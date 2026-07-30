@@ -20,6 +20,7 @@ export const PAID_INVOICE_HEADERS = [
   'Status',
   'Payment Date',
   'Payment Method',
+  'Sales Person Name',
 ] as const
 
 const HEADER_TO_FIELD: Record<string, keyof CreatePaidInvoiceInput> = {
@@ -39,6 +40,10 @@ const HEADER_TO_FIELD: Record<string, keyof CreatePaidInvoiceInput> = {
   status: 'status',
   'payment date': 'paymentDate',
   'payment method': 'paymentMethod',
+  'sales person name': 'salesPersonName',
+  'salesperson name': 'salesPersonName',
+  'sales person': 'salesPersonName',
+  salesperson: 'salesPersonName',
 }
 
 function isSerialColumn(header: string) {
@@ -74,6 +79,8 @@ function resolveField(header: string): keyof CreatePaidInvoiceInput | null {
   if (normalized.includes('invoice') && normalized.includes('amount')) return 'invoiceAmount'
   if (normalized.includes('invoice') && normalized.includes('date')) return 'invoiceDate'
   if (normalized === 'status') return 'status'
+  if (normalized.includes('sales') && normalized.includes('person')) return 'salesPersonName'
+  if (normalized === 'salesperson') return 'salesPersonName'
 
   return null
 }
@@ -88,6 +95,7 @@ function emptyRecord(): CreatePaidInvoiceInput {
     status: '',
     paymentDate: '',
     paymentMethod: '',
+    salesPersonName: '',
   }
 }
 
@@ -97,6 +105,7 @@ function assignField(
   value: unknown,
 ) {
   if (value === null || value === undefined || value === '') return
+  if (field === 'documents') return
 
   if (field === 'invoiceDate' || field === 'paymentDate') {
     const parsed = parseExcelDate(value)
@@ -136,6 +145,7 @@ export function exportPaidInvoicesExcel(invoices: PaidInvoice[]) {
     Status: invoice.status ?? '',
     'Payment Date': formatExportDate(invoice.paymentDate),
     'Payment Method': invoice.paymentMethod ?? '',
+    'Sales Person Name': invoice.salesPersonName ?? '',
   }))
 
   const timestamp = new Date().toISOString().slice(0, 10)

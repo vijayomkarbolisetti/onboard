@@ -28,3 +28,6 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# clerk configuration (can include secrets)
+/.clerk/
