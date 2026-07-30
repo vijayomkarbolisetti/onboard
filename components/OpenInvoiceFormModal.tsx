@@ -1,10 +1,11 @@
 'use client'
 
 import { CompanyNameSelect } from '@/components/CompanyNameSelect'
+import { DocumentField } from '@/components/DocumentField'
 import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { notify } from '@/lib/toast'
-import type { CreateOpenInvoiceInput, OpenInvoice } from '@/types'
+import type { CreateOpenInvoiceInput, OpenInvoice, StoredDocument } from '@/types'
 import {
   formatCompanyNames,
   parseCompanyNames,
@@ -29,6 +30,8 @@ const emptyForm: CreateOpenInvoiceInput = {
   invoiceAmount: '',
   status: '',
   notes: '',
+  salesPersonName: '',
+  documents: [],
 }
 
 type OpenInvoiceFormState = Omit<CreateOpenInvoiceInput, 'companyName'>
@@ -56,6 +59,8 @@ export function OpenInvoiceFormModal({
         invoiceAmount: toFormText(initial.invoiceAmount),
         status: initial.status,
         notes: initial.notes,
+        salesPersonName: initial.salesPersonName ?? '',
+        documents: initial.documents ?? [],
       })
       setSelectedCompanies(parseCompanyNames(initial.companyName))
     } else {
@@ -76,6 +81,8 @@ export function OpenInvoiceFormModal({
       invoiceAmount: form.invoiceAmount.trim(),
       status: form.status.trim(),
       notes: form.notes.trim(),
+      salesPersonName: form.salesPersonName.trim(),
+      documents: form.documents ?? [],
     }
 
     const companies = selectedCompanies.map((name) => name.trim()).filter(Boolean)
@@ -116,7 +123,7 @@ export function OpenInvoiceFormModal({
     onClose()
   }
 
-  const set = (key: keyof OpenInvoiceFormState, value: string) => {
+  const set = (key: keyof OpenInvoiceFormState, value: string | StoredDocument[]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -202,6 +209,25 @@ export function OpenInvoiceFormModal({
                 placeholder="Open, Pending..."
               />
             </Field>
+
+            <Field label="Sales Person Name">
+              <input
+                className="wyra-input"
+                value={form.salesPersonName}
+                onChange={(e) => set('salesPersonName', e.target.value)}
+                placeholder="Sales person name (optional)"
+              />
+            </Field>
+
+            <div className="sm:col-span-2 space-y-2">
+              <span className="wyra-label">Documents</span>
+              <DocumentField
+                folder="open-invoices"
+                documents={form.documents ?? []}
+                onChange={(documents) => set('documents', documents)}
+                disabled={submitting}
+              />
+            </div>
 
             <Field label="Notes" className="sm:col-span-2">
               <textarea

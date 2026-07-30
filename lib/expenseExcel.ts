@@ -84,6 +84,7 @@ function emptyRecord(): CreateExpenseInput {
 
 function assignField(record: CreateExpenseInput, field: keyof CreateExpenseInput, value: unknown) {
   if (value === null || value === undefined || value === '') return
+  if (field === 'documents') return
 
   if (field === 'invoiceDate') {
     const parsed = parseExcelDate(value)
