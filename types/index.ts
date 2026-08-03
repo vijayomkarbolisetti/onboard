@@ -13,6 +13,7 @@ export interface Onboarding {
   endDate: string
   committedAmount?: string | number
   paidAmount?: string | number
+  currency?: string
   campaignLaunchDate: string
   noOfCampaigns?: string | number
   targetedLeads?: string | number
@@ -37,6 +38,7 @@ export interface OnboardingInvoiceRecord {
   personEmailId: string
   onBoardDate: string
   invoiceAmount: string | number
+  currency?: string
   firstInvoiceDate: string
   invoiceCycle: string
   invoicesGenerated: string | number
@@ -70,6 +72,7 @@ export interface CreateOnboardingInput {
   endDate: string
   committedAmount: string
   paidAmount: string
+  currency?: string
   campaignLaunchDate: string
   noOfCampaigns: string
   targetedLeads: string
@@ -91,6 +94,7 @@ export interface CreateOnboardingInvoiceInput {
   personEmailId: string
   onBoardDate: string
   invoiceAmount: string
+  currency: string
   firstInvoiceDate: string
   invoiceCycle: string
   invoicesGenerated: string
@@ -117,6 +121,7 @@ export interface PaidInvoice {
   companyName: string
   invoiceNumber: string
   invoiceAmount: string | number
+  currency?: string
   status: string
   paymentDate: string
   paymentMethod: string
@@ -133,6 +138,7 @@ export interface OpenInvoice {
   companyName: string
   invoiceNumber: string
   invoiceAmount: string | number
+  currency?: string
   status: string
   notes: string
   salesPersonName?: string
@@ -146,6 +152,7 @@ export interface CreatePaidInvoiceInput {
   companyName: string
   invoiceNumber: string
   invoiceAmount: string
+  currency: string
   status: string
   paymentDate: string
   paymentMethod: string
@@ -159,6 +166,7 @@ export interface CreateOpenInvoiceInput {
   companyName: string
   invoiceNumber: string
   invoiceAmount: string
+  currency: string
   status: string
   notes: string
   salesPersonName: string
@@ -200,6 +208,7 @@ export interface CreateInvoiceInput {
 }
 
 export type TabId =
+  | 'dashboard'
   | 'onboarding'
   | 'onboarding-invoices'
   | 'paid-invoices'

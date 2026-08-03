@@ -1,9 +1,11 @@
 'use client'
 
-import { CompanyNameSelect } from '@/components/CompanyNameSelect'
+import { CompanyNameSelect, WyraSelect } from '@/components/CompanyNameSelect'
 import { DocumentField } from '@/components/DocumentField'
+import { UsdEquivalentHint } from '@/components/UsdEquivalentHint'
 import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
+import { CURRENCY_OPTIONS, resolveCurrency } from '@/lib/currency'
 import { notify } from '@/lib/toast'
 import type { CreateOpenInvoiceInput, OpenInvoice, StoredDocument } from '@/types'
 import {
@@ -28,6 +30,7 @@ const emptyForm: CreateOpenInvoiceInput = {
   companyName: '',
   invoiceNumber: '',
   invoiceAmount: '',
+  currency: 'USD',
   status: '',
   notes: '',
   salesPersonName: '',
@@ -57,6 +60,7 @@ export function OpenInvoiceFormModal({
         customerName: initial.customerName,
         invoiceNumber: resolveInvoiceNumber(initial as unknown as Record<string, unknown>),
         invoiceAmount: toFormText(initial.invoiceAmount),
+        currency: resolveCurrency(initial.currency, initial.invoiceAmount),
         status: initial.status,
         notes: initial.notes,
         salesPersonName: initial.salesPersonName ?? '',
@@ -79,6 +83,7 @@ export function OpenInvoiceFormModal({
       customerName: form.customerName.trim(),
       invoiceNumber: form.invoiceNumber.trim(),
       invoiceAmount: form.invoiceAmount.trim(),
+      currency: form.currency.trim() || 'USD',
       status: form.status.trim(),
       notes: form.notes.trim(),
       salesPersonName: form.salesPersonName.trim(),
@@ -191,13 +196,23 @@ export function OpenInvoiceFormModal({
               />
             </Field>
 
-            <Field label="Invoice Amount (USD)">
+            <Field label="Invoice Amount">
               <input
                 type="text"
                 className="wyra-input"
                 value={form.invoiceAmount}
                 onChange={(e) => set('invoiceAmount', e.target.value)}
                 placeholder="Enter amount"
+              />
+              <UsdEquivalentHint amount={form.invoiceAmount} currency={form.currency} />
+            </Field>
+
+            <Field label="Currency">
+              <WyraSelect
+                value={form.currency}
+                onChange={(value) => set('currency', value)}
+                allowEmpty={false}
+                options={CURRENCY_OPTIONS.map((code) => ({ value: code, label: code }))}
               />
             </Field>
 

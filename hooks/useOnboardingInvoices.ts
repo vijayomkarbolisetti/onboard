@@ -11,12 +11,19 @@ import {
 import { notify } from '@/lib/toast'
 import type { CreateOnboardingInvoiceInput, OnboardingInvoiceRecord } from '@/types'
 
-export function useOnboardingInvoices() {
+export function useOnboardingInvoices(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true
   const [records, setRecords] = useState<OnboardingInvoiceRecord[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setRecords([])
+      setError(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -29,7 +36,7 @@ export function useOnboardingInvoices() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [enabled])
 
   useEffect(() => {
     void load()

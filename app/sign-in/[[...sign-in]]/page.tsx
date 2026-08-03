@@ -1,7 +1,11 @@
 'use client'
 
-import { ClerkLoaded } from '@clerk/nextjs'
-import { useSignIn } from '@clerk/nextjs'
+import {
+  ClerkFailed,
+  ClerkLoaded,
+  ClerkLoading,
+  useSignIn,
+} from '@clerk/nextjs'
 import { isClerkAPIResponseError } from '@clerk/nextjs/errors'
 import { ChevronRight, Eye, EyeOff } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -16,7 +20,36 @@ function getClerkErrorMessage(error: unknown): string {
     return first?.longMessage ?? first?.message ?? 'Something went wrong. Please try again.'
   }
 
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
   return 'Something went wrong. Please try again.'
+}
+
+function getClerkErrorCode(error: unknown): string | undefined {
+  if (isClerkAPIResponseError(error)) {
+    return error.errors[0]?.code
+  }
+
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof (error as { code: unknown }).code === 'string'
+  ) {
+    return (error as { code: string }).code
+  }
+
+  return undefined
+}
+
+function AuthCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="w-full max-w-md rounded-2xl border border-[#e8e6f0] bg-white p-8 shadow-sm">
+      {children}
+    </div>
+  )
 }
 
 function SignInShell({ children }: { children: React.ReactNode }) {
@@ -30,7 +63,7 @@ function SignInShell({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <div className="auth-page flex min-h-screen flex-col items-center justify-center px-4 py-12">
+    <div className="auth-page flex min-h-screen flex-col items-center justify-center bg-[#f4f3fa] px-4 py-12">
       <div className="mb-8 flex flex-col items-center">
         <WyraLogo
           priority
@@ -38,12 +71,43 @@ function SignInShell({ children }: { children: React.ReactNode }) {
           height={48}
           className="h-12 w-auto max-w-full object-contain"
         />
-        <p className="mt-3 text-center text-sm text-theme-muted">
+        <p className="mt-3 text-center text-sm text-[#5c5a78]">
           Sign in to Wyra Client Tracker
         </p>
       </div>
       {children}
     </div>
+  )
+}
+
+function ClerkUnavailableMessage() {
+  return (
+    <AuthCard>
+      <h1 className="text-xl font-bold text-[#241f5b]">Sign-in could not load</h1>
+      <p className="mt-2 text-sm text-[#5c5a78]">
+        Clerk authentication did not finish loading. If you use Brave (or another
+        blocker), disable shields for{' '}
+        <span className="font-medium text-[#241f5b]">localhost:3000</span>, then
+        refresh.
+      </p>
+      <p className="mt-3 text-sm text-[#5c5a78]">
+        Also confirm{' '}
+        <code className="rounded bg-[#f4f3fa] px-1 py-0.5 text-xs">
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+        </code>{' '}
+        is set in <code className="rounded bg-[#f4f3fa] px-1 py-0.5 text-xs">.env.local</code>{' '}
+        and restart <code className="rounded bg-[#f4f3fa] px-1 py-0.5 text-xs">npm run
+        dev</code>.
+      </p>
+      <button
+        type="button"
+        className="btn-wyra mt-6 w-full"
+        onClick={() => window.location.assign('/sign-in')}
+      >
+        Retry
+        <ChevronRight size={16} />
+      </button>
+    </AuthCard>
   )
 }
 
@@ -59,8 +123,11 @@ function WyraSignInForm() {
   const [code, setCode] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [ticketHandled, setTicketHandled] = useState(false)
+  const [ticketLoading, setTicketLoading] = useState(false)
 
-  const isSubmitting = fetchStatus === 'fetching'
+  const ticket = searchParams.get('__clerk_ticket')
+  const clerkStatus = searchParams.get('__clerk_status')
+  const isSubmitting = fetchStatus === 'fetching' || ticketLoading
 
   const finalizeSignIn = async () => {
     await signIn.finalize({
@@ -109,25 +176,56 @@ function WyraSignInForm() {
     return false
   }
 
+  // Invitation tickets for new accounts belong on sign-up
   useEffect(() => {
-    const ticket = searchParams.get('__clerk_ticket')
-    if (!ticket || ticketHandled) {
+    if (ticket && clerkStatus === 'sign_up') {
+      router.replace(`/sign-up?${searchParams.toString()}`)
+    }
+  }, [ticket, clerkStatus, router, searchParams])
+
+  useEffect(() => {
+    if (!ticket || ticketHandled || clerkStatus === 'sign_up') {
       return
     }
 
     setTicketHandled(true)
+    setTicketLoading(true)
 
     void (async () => {
-      setFormError(null)
-      const { error } = await signIn.ticket({ ticket })
-      if (error) {
-        setFormError(getClerkErrorMessage(error))
-        return
-      }
+      try {
+        setFormError(null)
+        const { error } = await signIn.ticket({ ticket })
+        if (error) {
+          const code = getClerkErrorCode(error)
+          const message = getClerkErrorMessage(error).toLowerCase()
+          if (
+            code === 'invitation_not_found' ||
+            code === 'form_identifier_not_found' ||
+            code === 'ticket_expired' ||
+            message.includes('sign up') ||
+            message.includes('sign-up')
+          ) {
+            router.replace(`/sign-up?${searchParams.toString()}`)
+            return
+          }
 
-      await completeSignInIfReady()
+          setFormError(
+            `${getClerkErrorMessage(error)} You can also sign in with email and password below.`,
+          )
+          return
+        }
+
+        await completeSignInIfReady()
+      } catch (err) {
+        setFormError(
+          `${getClerkErrorMessage(err)} You can sign in with email and password below.`,
+        )
+      } finally {
+        setTicketLoading(false)
+      }
     })()
-  }, [searchParams, signIn, ticketHandled])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot invite ticket handling
+  }, [ticket, ticketHandled, clerkStatus, signIn])
 
   const handleLoginSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -144,18 +242,24 @@ function WyraSignInForm() {
       return
     }
 
-    const { error } = await signIn.password({
-      emailAddress: trimmedEmail,
-      password,
-    })
-    if (error) {
-      setFormError(getClerkErrorMessage(error))
-      return
-    }
+    try {
+      const { error } = await signIn.password({
+        emailAddress: trimmedEmail,
+        password,
+      })
+      if (error) {
+        setFormError(getClerkErrorMessage(error))
+        return
+      }
 
-    const handled = await completeSignInIfReady()
-    if (!handled && signIn.status !== 'complete') {
-      setFormError('Additional verification is required. Please contact your administrator.')
+      const handled = await completeSignInIfReady()
+      if (!handled && signIn.status !== 'complete') {
+        setFormError(
+          'Additional verification is required. Please contact your administrator.',
+        )
+      }
+    } catch (err) {
+      setFormError(getClerkErrorMessage(err))
     }
   }
 
@@ -168,39 +272,49 @@ function WyraSignInForm() {
       return
     }
 
-    const verify =
-      step === 'mfa'
-        ? signIn.mfa.verifyEmailCode({ code: code.trim() })
-        : signIn.emailCode.verifyCode({ code: code.trim() })
+    try {
+      const verify =
+        step === 'mfa'
+          ? signIn.mfa.verifyEmailCode({ code: code.trim() })
+          : signIn.emailCode.verifyCode({ code: code.trim() })
 
-    const { error } = await verify
-    if (error) {
-      setFormError(getClerkErrorMessage(error))
-      return
-    }
+      const { error } = await verify
+      if (error) {
+        setFormError(getClerkErrorMessage(error))
+        return
+      }
 
-    const handled = await completeSignInIfReady()
-    if (!handled && signIn.status === 'complete') {
-      await finalizeSignIn()
-    } else if (!handled) {
-      setFormError('Verification could not be completed. Please try again.')
+      const handled = await completeSignInIfReady()
+      if (!handled && signIn.status === 'complete') {
+        await finalizeSignIn()
+      } else if (!handled) {
+        setFormError('Verification could not be completed. Please try again.')
+      }
+    } catch (err) {
+      setFormError(getClerkErrorMessage(err))
     }
   }
 
   const stepTitle =
-    step === 'login'
-      ? 'Sign in to Wyra Client Tracker'
-      : 'Check your email'
+    step === 'login' ? 'Sign in to Wyra Client Tracker' : 'Check your email'
 
   const stepSubtitle =
     step === 'login'
-      ? 'Welcome back! Please sign in to continue'
+      ? ticket
+        ? 'Accepting your invitation… or sign in with email below'
+        : 'Welcome back! Please sign in to continue'
       : `We sent a verification code to ${email}`
 
   return (
-    <div className="glass-card w-full max-w-md p-8">
-      <h1 className="text-xl font-bold text-theme-fg">{stepTitle}</h1>
-      <p className="mt-2 text-sm text-theme-muted">{stepSubtitle}</p>
+    <AuthCard>
+      <h1 className="text-xl font-bold text-[#241f5b]">{stepTitle}</h1>
+      <p className="mt-2 text-sm text-[#5c5a78]">{stepSubtitle}</p>
+
+      {ticketLoading ? (
+        <p className="mt-4 rounded-lg border border-[#e8e6f0] bg-[#faf9ff] px-3 py-2 text-sm text-[#5c5a78]">
+          Completing invitation sign-in…
+        </p>
+      ) : null}
 
       {formError ? (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -242,7 +356,7 @@ function WyraSignInForm() {
               />
               <button
                 type="button"
-                className="absolute top-1/2 right-3 -translate-y-1/2 text-theme-muted transition hover:text-theme-fg"
+                className="absolute top-1/2 right-3 -translate-y-1/2 text-[#5c5a78] transition hover:text-[#241f5b]"
                 onClick={() => setShowPassword((current) => !current)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
@@ -281,7 +395,7 @@ function WyraSignInForm() {
           </button>
           <button
             type="button"
-            className="w-full text-sm text-theme-muted transition hover:text-theme-fg"
+            className="w-full text-sm text-[#5c5a78] transition hover:text-[#241f5b]"
             onClick={() => {
               setStep('login')
               setCode('')
@@ -293,19 +407,27 @@ function WyraSignInForm() {
           </button>
         </form>
       ) : null}
-    </div>
+    </AuthCard>
   )
 }
 
 export default function SignInPage() {
   return (
     <SignInShell>
+      <ClerkLoading>
+        <AuthCard>
+          <p className="text-center text-sm text-[#5c5a78]">Loading sign in…</p>
+        </AuthCard>
+      </ClerkLoading>
+      <ClerkFailed>
+        <ClerkUnavailableMessage />
+      </ClerkFailed>
       <ClerkLoaded>
         <Suspense
           fallback={
-            <div className="glass-card w-full max-w-md p-8 text-center text-sm text-theme-muted">
-              Loading sign in...
-            </div>
+            <AuthCard>
+              <p className="text-center text-sm text-[#5c5a78]">Loading sign in…</p>
+            </AuthCard>
           }
         >
           <WyraSignInForm />

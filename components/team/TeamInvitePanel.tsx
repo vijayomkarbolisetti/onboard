@@ -3,6 +3,7 @@
 import { useOrganization, useOrganizationList, useUser } from '@clerk/nextjs'
 import {
   Building2,
+  ChevronDown,
   Clock3,
   Loader2,
   Mail,
@@ -14,9 +15,16 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { WyraSelect } from '@/components/CompanyNameSelect'
+import { MemberModulePermissionsEditor } from '@/components/team/MemberModulePermissionsEditor'
+import { ModuleAccessCheckboxes } from '@/components/team/ModuleAccessCheckboxes'
 import { useDeleteConfirm } from '@/hooks/useDeleteConfirm'
 import { notify } from '@/lib/toast'
 import { cn } from '@/lib/utils'
+import {
+  defaultMemberModuleAccess,
+  type ModuleId,
+  type ModulePermission,
+} from '@/lib/modulePermissions'
 
 type TeamMember = {
   id: string
@@ -26,6 +34,7 @@ type TeamMember = {
   imageUrl: string
   identifier: string
   role: string
+  moduleAccess?: Record<ModuleId, ModulePermission>
 }
 
 type TeamInvitation = {
@@ -57,6 +66,8 @@ export function TeamInvitePanel() {
   const [bootstrapping, setBootstrapping] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<'org:member' | 'org:admin'>('org:member')
+  const [inviteAccess, setInviteAccess] = useState(defaultMemberModuleAccess)
+  const [invitePermissionsOpen, setInvitePermissionsOpen] = useState(false)
   const [sendingInvite, setSendingInvite] = useState(false)
   const [loadingTeam, setLoadingTeam] = useState(false)
   const [members, setMembers] = useState<TeamMember[]>([])
@@ -164,6 +175,7 @@ export function TeamInvitePanel() {
         body: JSON.stringify({
           emailAddress: inviteEmail.trim(),
           role: inviteRole,
+          moduleAccess: inviteRole === 'org:member' ? inviteAccess : undefined,
         }),
       })
       const payload = await response.json()
@@ -173,7 +185,12 @@ export function TeamInvitePanel() {
       }
 
       setInviteEmail('')
-      notify.success(`Invitation sent to ${payload.invitation.emailAddress}`)
+      setInviteAccess(defaultMemberModuleAccess())
+      if (payload.warning) {
+        notify.error(payload.warning)
+      } else {
+        notify.success(`Invitation sent to ${payload.invitation.emailAddress}`)
+      }
       await loadTeamData()
     } catch (err) {
       notify.error(err instanceof Error ? err.message : 'Failed to send invitation')
@@ -334,51 +351,97 @@ export function TeamInvitePanel() {
               </div>
             </div>
 
-            <form onSubmit={handleSendInvite} className="mt-6 grid gap-4 sm:grid-cols-[1fr_auto_auto]">
-              <label className="block sm:col-span-1">
-                <span className="wyra-label">Email address</span>
-                <input
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="colleague@company.com"
-                  className="wyra-input mt-2 w-full"
-                />
-              </label>
+            <form onSubmit={handleSendInvite} className="mt-6 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto]">
+                <label className="block sm:col-span-1">
+                  <span className="wyra-label">Email address</span>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="colleague@company.com"
+                    className="wyra-input mt-2 w-full"
+                  />
+                </label>
 
-              <label className="block">
-                <span className="wyra-label">Role</span>
-                <WyraSelect
-                  className="mt-2"
-                  value={inviteRole}
-                  onChange={(value) =>
-                    setInviteRole(value as 'org:member' | 'org:admin')
-                  }
-                  allowEmpty={false}
-                  placeholder="Role"
-                  options={[
-                    { value: 'org:member', label: 'Member' },
-                    { value: 'org:admin', label: 'Admin' },
-                  ]}
-                />
-              </label>
+                <label className="block">
+                  <span className="wyra-label">Role</span>
+                  <WyraSelect
+                    className="mt-2"
+                    value={inviteRole}
+                    onChange={(value) =>
+                      setInviteRole(value as 'org:member' | 'org:admin')
+                    }
+                    allowEmpty={false}
+                    placeholder="Role"
+                    options={[
+                      { value: 'org:member', label: 'Member' },
+                      { value: 'org:admin', label: 'Admin' },
+                    ]}
+                  />
+                </label>
 
-              <div className="flex items-end">
-                <button type="submit" disabled={sendingInvite} className="btn-wyra w-full sm:w-auto">
-                  {sendingInvite ? (
-                    <Loader2 className="animate-spin" size={16} />
-                  ) : (
-                    <Mail size={16} />
-                  )}
-                  Send invite
-                </button>
+                <div className="flex items-end">
+                  <button type="submit" disabled={sendingInvite} className="btn-wyra w-full sm:w-auto">
+                    {sendingInvite ? (
+                      <Loader2 className="animate-spin" size={16} />
+                    ) : (
+                      <Mail size={16} />
+                    )}
+                    Send invite
+                  </button>
+                </div>
               </div>
+
+              {inviteRole === 'org:member' ? (
+                <div className="overflow-hidden rounded-xl border border-aqua/25 bg-theme-surface">
+                  <button
+                    type="button"
+                    onClick={() => setInvitePermissionsOpen((v) => !v)}
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-theme-hover"
+                    aria-expanded={invitePermissionsOpen}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-theme-fg">Module permissions</p>
+                      <p className="text-[11px] text-theme-muted">
+                        {invitePermissionsOpen
+                          ? 'Click to collapse'
+                          : 'Click to set view / upload access before inviting'}
+                      </p>
+                    </div>
+                    <ChevronDown
+                      size={16}
+                      className={cn(
+                        'shrink-0 text-aqua transition-transform duration-200',
+                        invitePermissionsOpen && 'rotate-180',
+                      )}
+                    />
+                  </button>
+                  {invitePermissionsOpen ? (
+                    <div className="border-t border-theme px-3 pb-3 pt-3">
+                      <p className="mb-3 text-xs text-theme-muted">
+                        Set what this person can view and edit. You can change this later in Team
+                        members.
+                      </p>
+                      <ModuleAccessCheckboxes
+                        access={inviteAccess}
+                        onChange={setInviteAccess}
+                        disabled={sendingInvite}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="text-xs text-theme-muted">
+                  Admins always get full access to every module.
+                </p>
+              )}
             </form>
           </div>
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4">
         <div className="content-shell overflow-hidden">
           <div className="h-px bg-gradient-to-r from-transparent via-aqua/50 to-transparent" />
           <div className="p-5 sm:p-7">
@@ -401,8 +464,9 @@ export function TeamInvitePanel() {
                 {members.map((member) => (
                   <li
                     key={member.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-theme bg-theme-hover px-4 py-3"
+                    className="rounded-xl border border-theme bg-theme-hover px-4 py-3"
                   >
+                    <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
                       {member.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -482,6 +546,29 @@ export function TeamInvitePanel() {
                         </button>
                       )}
                     </div>
+                    </div>
+                    {isAdmin &&
+                    member.userId &&
+                    member.userId !== user?.id &&
+                    member.role !== 'org:admin' ? (
+                      <MemberModulePermissionsEditor
+                        userId={member.userId}
+                        memberName={memberLabel(member)}
+                        initialAccess={member.moduleAccess ?? defaultMemberModuleAccess()}
+                        onSaved={(moduleAccess) => {
+                          setMembers((prev) =>
+                            prev.map((m) =>
+                              m.userId === member.userId ? { ...m, moduleAccess } : m,
+                            ),
+                          )
+                        }}
+                      />
+                    ) : null}
+                    {isAdmin && member.role === 'org:admin' ? (
+                      <p className="mt-2 text-[11px] text-theme-muted">
+                        Admins always have full access to every module.
+                      </p>
+                    ) : null}
                   </li>
                 ))}
               </ul>

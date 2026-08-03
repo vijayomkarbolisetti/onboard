@@ -35,6 +35,7 @@ const columns = [
   'Company Name',
   'Invoice Number',
   'Invoice Amount',
+  'Currency',
   'Status',
   'Payment Date',
   'Payment Method',
@@ -66,6 +67,8 @@ function cellValue(invoice: PaidInvoice, column: (typeof columns)[number], index
       return resolveInvoiceNumber(invoice as unknown as Record<string, unknown>) || '—'
     case 'Invoice Amount':
       return displayFieldValue(invoice.invoiceAmount)
+    case 'Currency':
+      return invoice.currency?.trim() || 'USD'
     case 'Status':
       return invoice.status || '—'
     case 'Payment Date':
@@ -105,7 +108,8 @@ export function PaidInvoices({
   onDelete,
   onImport,
 }: PaidInvoicesProps) {
-  const { canWrite } = useTeamRole()
+  const { canWriteModule } = useTeamRole()
+  const canWrite = canWriteModule('paid-invoices')
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<PaidInvoice | null>(null)
   const [viewing, setViewing] = useState<PaidInvoice | null>(null)

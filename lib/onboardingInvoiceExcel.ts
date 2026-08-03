@@ -38,6 +38,7 @@ export const ONBOARDING_INVOICE_HEADERS = [
   'Person Email Id',
   'On Board Date',
   'Invoice Amount',
+  'Currency',
   '1st Invoice Date',
   'Invoice Cycle',
   'No. Invoices Generated',
@@ -68,6 +69,7 @@ const HEADER_TO_FIELD: Record<string, keyof CreateOnboardingInvoiceInput> = {
   'on board date': 'onBoardDate',
   'onboard date': 'onBoardDate',
   'invoice amount': 'invoiceAmount',
+  currency: 'currency',
   '1st invoice date': 'firstInvoiceDate',
   'first invoice date': 'firstInvoiceDate',
   'invoice cycle': 'invoiceCycle',
@@ -144,6 +146,7 @@ function resolveField(header: string): keyof CreateOnboardingInvoiceInput | null
   if (normalized.includes('on') && normalized.includes('board')) return 'onBoardDate'
   if (isTotalAmountPaidHeader(normalized)) return 'totalAmountPaid'
   if (isInvoiceAmountHeader(normalized)) return 'invoiceAmount'
+  if (normalized === 'currency' || normalized === 'curr') return 'currency'
   if (
     (normalized.includes('1st') || normalized.includes('first')) &&
     normalized.includes('invoice') &&
@@ -184,6 +187,7 @@ function emptyRecord(): CreateOnboardingInvoiceInput {
     personEmailId: '',
     onBoardDate: '',
     invoiceAmount: '',
+    currency: 'USD',
     firstInvoiceDate: '',
     invoiceCycle: '',
     invoicesGenerated: '',
@@ -336,6 +340,7 @@ export function exportOnboardingInvoicesExcel(records: OnboardingInvoiceRecord[]
     'Person Email Id': record.personEmailId,
     'On Board Date': formatExportDate(record.onBoardDate),
     'Invoice Amount': toExportText(record.invoiceAmount),
+    Currency: toExportText(record.currency) || 'USD',
     '1st Invoice Date': formatExportDate(record.firstInvoiceDate),
     'Invoice Cycle': record.invoiceCycle,
     'No. Invoices Generated': toExportText(record.invoicesGenerated),
@@ -405,5 +410,9 @@ export function normalizeOnboardingInvoiceRecord(
       record.invoiceAmount != null && record.invoiceAmount !== ''
         ? record.invoiceAmount
         : toExportText(raw['Invoice Amount'] ?? raw.invoice_amount ?? raw.invoiceAmount),
+    currency:
+      record.currency?.trim() ||
+      toExportText(raw.Currency ?? raw.currency) ||
+      'USD',
   }
 }

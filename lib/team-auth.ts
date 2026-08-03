@@ -5,12 +5,21 @@ import {
   getSingleOrganizationName,
   type AppOrganization,
 } from '@/lib/single-org'
+import {
+  canViewModule,
+  canWriteModule,
+  normalizeModuleAccess,
+  type ModuleId,
+  type ModulePermission,
+} from '@/lib/modulePermissions'
+import { getStoredModuleAccess, upsertStoredModuleAccess } from '@/lib/userModuleAccessStore'
 
 export type TeamAuthContext = {
   userId: string
   orgId: string
   orgRole: string
   isAdmin: boolean
+  moduleAccess: Record<ModuleId, ModulePermission>
 }
 
 export async function listInstanceOrganizations() {
@@ -82,9 +91,9 @@ async function resolveOrganizationId(
   sessionOrgId: string | null | undefined,
   userId: string,
 ): Promise<string | null> {
-  const client = await clerkClient()
   const configuredOrgId = getSingleOrganizationId()
 
+  const client = await clerkClient()
   const { data: memberships } = await client.users.getOrganizationMembershipList({
     userId,
     limit: 10,
@@ -141,14 +150,8 @@ async function resolveMembershipRole(
     return sessionRole
   }
 
-  const client = await clerkClient()
-  const { data: memberships } = await client.organizations.getOrganizationMembershipList({
-    organizationId: orgId,
-    userId: [userId],
-    limit: 1,
-  })
-
-  return memberships[0]?.role ?? null
+  const membership = await getUserOrganizationMembership(userId, orgId)
+  return membership?.role ?? null
 }
 
 export async function resolveTeamContext(): Promise<TeamAuthContext | NextResponse> {
@@ -166,7 +169,11 @@ export async function resolveTeamContext(): Promise<TeamAuthContext | NextRespon
     )
   }
 
-  const resolvedRole = await resolveMembershipRole(userId, resolvedOrgId, orgId, orgRole)
+  const membership = await getUserOrganizationMembership(userId, resolvedOrgId)
+  const resolvedRole =
+    membership?.role ??
+    (await resolveMembershipRole(userId, resolvedOrgId, orgId, orgRole))
+
   if (!resolvedRole) {
     return NextResponse.json(
       { error: 'You are not a member of this organization. Ask an admin for an invite.' },
@@ -175,12 +182,52 @@ export async function resolveTeamContext(): Promise<TeamAuthContext | NextRespon
   }
 
   const isAdmin = resolvedRole === 'org:admin'
+  let rawAccess: unknown = null
+  try {
+    rawAccess = await getStoredModuleAccess(resolvedOrgId, userId)
+  } catch {
+    rawAccess = null
+  }
+
+  // First login after invite: apply permissions saved at invite time
+  if (!isAdmin && !rawAccess) {
+    try {
+      const [
+        { getPendingModuleAccess, deletePendingModuleAccess },
+        client,
+      ] = await Promise.all([
+        import('@/lib/pendingModuleAccessStore'),
+        clerkClient(),
+      ])
+      const user = await client.users.getUser(userId)
+      const email =
+        user.primaryEmailAddress?.emailAddress?.trim().toLowerCase() ||
+        user.emailAddresses[0]?.emailAddress?.trim().toLowerCase()
+      if (email) {
+        const pending = await getPendingModuleAccess(resolvedOrgId, email)
+        if (pending) {
+          rawAccess = await upsertStoredModuleAccess({
+            orgId: resolvedOrgId,
+            userId,
+            moduleAccess: pending,
+            updatedBy: userId,
+          })
+          await deletePendingModuleAccess(resolvedOrgId, email).catch(() => undefined)
+        }
+      }
+    } catch {
+      // Keep defaults if pending lookup fails
+    }
+  }
+
+  const moduleAccess = normalizeModuleAccess(rawAccess, isAdmin)
 
   return {
     userId,
     orgId: resolvedOrgId,
     orgRole: resolvedRole,
     isAdmin,
+    moduleAccess,
   }
 }
 
@@ -195,6 +242,35 @@ export async function requireTeamAuth(
   if (requireAdmin && !context.isAdmin) {
     return NextResponse.json(
       { error: 'Only organization admins can perform this action' },
+      { status: 403 },
+    )
+  }
+
+  return context
+}
+
+/** Require view or write access to a specific module. Admins always pass. */
+export async function requireModuleAccess(
+  moduleId: ModuleId,
+  action: 'view' | 'write' = 'view',
+): Promise<TeamAuthContext | NextResponse> {
+  const context = await resolveTeamContext()
+  if (context instanceof NextResponse) {
+    return context
+  }
+
+  if (context.isAdmin) return context
+
+  if (action === 'view' && !canViewModule(context.moduleAccess, moduleId)) {
+    return NextResponse.json(
+      { error: 'You do not have permission to view this module' },
+      { status: 403 },
+    )
+  }
+
+  if (action === 'write' && !canWriteModule(context.moduleAccess, moduleId)) {
+    return NextResponse.json(
+      { error: 'You do not have permission to change data in this module' },
       { status: 403 },
     )
   }

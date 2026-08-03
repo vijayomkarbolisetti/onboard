@@ -4,6 +4,7 @@ import { useClerk, useUser } from '@clerk/nextjs'
 import {
   CircleDollarSign,
   FileText,
+  LayoutDashboard,
   LogOut,
   Receipt,
   Settings,
@@ -15,6 +16,7 @@ import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { WyraLogo } from '@/components/WyraLogo'
+import { useTeamRole } from '@/hooks/useTeamRole'
 import { cn } from '@/lib/utils'
 import type { TabId } from '@/types'
 
@@ -25,6 +27,7 @@ interface LayoutProps {
 }
 
 const navItems: { id: TabId; label: string; icon: typeof Users }[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'onboarding', label: 'Client Tracker', icon: Users },
   { id: 'onboarding-invoices', label: 'Onboarding & Invoices', icon: Receipt },
   { id: 'paid-invoices', label: 'Paid Invoices', icon: CircleDollarSign },
@@ -144,6 +147,9 @@ function WyraUserMenu() {
 }
 
 export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
+  const { canView, isLoaded } = useTeamRole()
+  const visibleNavItems = navItems.filter((item) => !isLoaded || canView(item.id))
+
   return (
     <div className="min-h-screen">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[280px] flex-col border-r border-theme bg-theme-sidebar shadow-sm lg:flex">
@@ -154,8 +160,8 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
           </p>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-5">
-          {navItems.map((item) => {
+        <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-5" aria-label="Main navigation">
+          {visibleNavItems.map((item) => {
             const Icon = item.icon
             const isActive = activeTab === item.id
             return (
@@ -170,7 +176,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                     : 'text-theme-muted hover:bg-theme-hover hover:text-theme-fg',
                 )}
               >
-                <Icon size={18} />
+                <Icon size={18} aria-hidden />
                 <span className="text-left leading-snug">{item.label}</span>
               </button>
             )
@@ -188,7 +194,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
             </div>
           </div>
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <button
                 key={item.id}
                 type="button"

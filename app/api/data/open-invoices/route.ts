@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createOrgFirestoreStore } from '@/lib/orgFirestore'
-import { isTeamAuthContext, requireTeamAuth } from '@/lib/team-auth'
+import { isTeamAuthContext, requireModuleAccess } from '@/lib/team-auth'
 import type { CreateOpenInvoiceInput, OpenInvoice } from '@/types'
 import { normalizeOpenInvoice } from '@/utils/format'
 
 const store = createOrgFirestoreStore<OpenInvoice>('open_invoices')
 
 export async function GET() {
-  const authResult = await requireTeamAuth()
+  const authResult = await requireModuleAccess('open-invoices', 'view')
   if (!isTeamAuthContext(authResult)) {
     return authResult
   }
@@ -22,7 +22,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const authResult = await requireTeamAuth(true)
+  const authResult = await requireModuleAccess('open-invoices', 'write')
   if (!isTeamAuthContext(authResult)) {
     return authResult
   }

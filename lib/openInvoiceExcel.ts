@@ -1,4 +1,5 @@
 import type { CreateOpenInvoiceInput, OpenInvoice } from '@/types'
+import { resolveCurrency } from '@/lib/currency'
 import {
   formatDocumentsForExport,
   formatExportDate,
@@ -18,6 +19,7 @@ export const OPEN_INVOICE_HEADERS = [
   'Company Name',
   'Invoice Number',
   'Invoice Amount',
+  'Currency',
   'Status',
   'Sales Person Name',
   'Documents',
@@ -38,6 +40,7 @@ const HEADER_TO_FIELD: Record<string, keyof CreateOpenInvoiceInput> = {
   'invoice #': 'invoiceNumber',
   'invoice id': 'invoiceNumber',
   'invoice amount': 'invoiceAmount',
+  currency: 'currency',
   status: 'status',
   notes: 'notes',
   note: 'notes',
@@ -78,6 +81,7 @@ function resolveField(header: string): keyof CreateOpenInvoiceInput | null {
   if (normalized.includes('company') && normalized.includes('name')) return 'companyName'
   if (normalized.includes('invoice') && normalized.includes('amount')) return 'invoiceAmount'
   if (normalized.includes('invoice') && normalized.includes('date')) return 'invoiceDate'
+  if (normalized === 'currency' || normalized === 'curr') return 'currency'
   if (normalized === 'status') return 'status'
   if (normalized.includes('note') || normalized.includes('remark')) return 'notes'
   if (normalized.includes('sales') && normalized.includes('person')) return 'salesPersonName'
@@ -93,6 +97,7 @@ function emptyRecord(): CreateOpenInvoiceInput {
     companyName: '',
     invoiceNumber: '',
     invoiceAmount: '',
+    currency: 'USD',
     status: '',
     notes: '',
     salesPersonName: '',
@@ -145,6 +150,7 @@ export async function exportOpenInvoicesExcel(invoices: OpenInvoice[]) {
       'Company Name': formatCompanyNames(invoice.companyName),
       'Invoice Number': resolveInvoiceNumber(invoice as unknown as Record<string, unknown>),
       'Invoice Amount': invoice.invoiceAmount != null ? String(invoice.invoiceAmount) : '',
+      Currency: resolveCurrency(invoice.currency, invoice.invoiceAmount),
       Status: invoice.status ?? '',
       'Sales Person Name': invoice.salesPersonName ?? '',
       Documents: await formatDocumentsForExport(invoice.documents),
