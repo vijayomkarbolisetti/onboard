@@ -5,6 +5,7 @@ import {
   formatTextCellValue,
   parseExcelDate,
   parseExcelSheet,
+  toExportNumber,
   writeExcelFile,
   downloadExcelTemplate,
 } from '@/lib/excelUtils'
@@ -127,14 +128,16 @@ export async function exportExpensesExcel(expenses: Expense[]) {
       'Invoice Date': formatExportDate(expense.invoiceDate),
       'Card Used': expense.cardUsed ?? '',
       'Card Owner': expense.cardOwner ?? '',
-      Amount: expense.amount != null ? String(expense.amount) : '',
+      Amount: toExportNumber(expense.amount),
       Currency: expense.currency ?? 'USD',
       Documents: await formatDocumentsForExport(expense.documents),
     })
   }
 
   const timestamp = new Date().toISOString().slice(0, 10)
-  writeExcelFile('Expenses', EXPENSE_HEADERS, rows, `expenses-${timestamp}.xlsx`)
+  writeExcelFile('Expenses', EXPENSE_HEADERS, rows, `expenses-${timestamp}.xlsx`, {
+    moneyHeaders: ['Amount'],
+  })
 }
 
 export function downloadExpenseTemplate() {
