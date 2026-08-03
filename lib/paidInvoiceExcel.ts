@@ -7,6 +7,7 @@ import {
   matchesInvoiceNumberHeader,
   parseExcelDate,
   parseExcelSheet,
+  toExportNumber,
   writeExcelFile,
   downloadExcelTemplate,
 } from '@/lib/excelUtils'
@@ -151,7 +152,7 @@ export async function exportPaidInvoicesExcel(invoices: PaidInvoice[]) {
       'Customer Name': invoice.customerName ?? '',
       'Company Name': formatCompanyNames(invoice.companyName),
       'Invoice Number': resolveInvoiceNumber(invoice as unknown as Record<string, unknown>),
-      'Invoice Amount': invoice.invoiceAmount != null ? String(invoice.invoiceAmount) : '',
+      'Invoice Amount': toExportNumber(invoice.invoiceAmount),
       Currency: resolveCurrency(invoice.currency, invoice.invoiceAmount),
       Status: invoice.status ?? '',
       'Payment Date': formatExportDate(invoice.paymentDate),
@@ -162,7 +163,9 @@ export async function exportPaidInvoicesExcel(invoices: PaidInvoice[]) {
   }
 
   const timestamp = new Date().toISOString().slice(0, 10)
-  writeExcelFile('Paid Invoices', PAID_INVOICE_HEADERS, rows, `paid-invoices-${timestamp}.xlsx`)
+  writeExcelFile('Paid Invoices', PAID_INVOICE_HEADERS, rows, `paid-invoices-${timestamp}.xlsx`, {
+    moneyHeaders: ['Invoice Amount'],
+  })
 }
 
 export function downloadPaidInvoiceTemplate() {

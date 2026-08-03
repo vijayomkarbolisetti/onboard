@@ -7,6 +7,7 @@ import {
   matchesInvoiceNumberHeader,
   parseExcelDate,
   parseExcelSheet,
+  toExportNumber,
   writeExcelFile,
   downloadExcelTemplate,
 } from '@/lib/excelUtils'
@@ -149,7 +150,7 @@ export async function exportOpenInvoicesExcel(invoices: OpenInvoice[]) {
       'Customer Name': invoice.customerName ?? '',
       'Company Name': formatCompanyNames(invoice.companyName),
       'Invoice Number': resolveInvoiceNumber(invoice as unknown as Record<string, unknown>),
-      'Invoice Amount': invoice.invoiceAmount != null ? String(invoice.invoiceAmount) : '',
+      'Invoice Amount': toExportNumber(invoice.invoiceAmount),
       Currency: resolveCurrency(invoice.currency, invoice.invoiceAmount),
       Status: invoice.status ?? '',
       'Sales Person Name': invoice.salesPersonName ?? '',
@@ -159,7 +160,9 @@ export async function exportOpenInvoicesExcel(invoices: OpenInvoice[]) {
   }
 
   const timestamp = new Date().toISOString().slice(0, 10)
-  writeExcelFile('Open Invoices', OPEN_INVOICE_HEADERS, rows, `open-invoices-${timestamp}.xlsx`)
+  writeExcelFile('Open Invoices', OPEN_INVOICE_HEADERS, rows, `open-invoices-${timestamp}.xlsx`, {
+    moneyHeaders: ['Invoice Amount'],
+  })
 }
 
 export function downloadOpenInvoiceTemplate() {

@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx-js-style'
 import {
   applyBoldHeaderRow,
+  applyNumberFormats,
   autoFitWorksheetColumns,
   cellDisplayValue,
   cellLinkValue,
@@ -12,6 +13,7 @@ import {
   normalizeHeader,
   parseExcelDate,
   formatTextCellValue,
+  toExportNumber,
 } from '@/lib/excelUtils'
 import type {
   CreateOnboardingInvoiceInput,
@@ -339,14 +341,14 @@ export function exportOnboardingInvoicesExcel(records: OnboardingInvoiceRecord[]
     'Point Of Contact': record.pointOfContact,
     'Person Email Id': record.personEmailId,
     'On Board Date': formatExportDate(record.onBoardDate),
-    'Invoice Amount': toExportText(record.invoiceAmount),
+    'Invoice Amount': toExportNumber(record.invoiceAmount),
     Currency: toExportText(record.currency) || 'USD',
     '1st Invoice Date': formatExportDate(record.firstInvoiceDate),
     'Invoice Cycle': record.invoiceCycle,
-    'No. Invoices Generated': toExportText(record.invoicesGenerated),
-    'No. Invoices Paid': toExportText(record.invoicesPaid),
-    'Total Amount Paid': toExportText(record.totalAmountPaid),
-    'Pending Amount': toExportText(record.pendingAmount),
+    'No. Invoices Generated': toExportNumber(record.invoicesGenerated),
+    'No. Invoices Paid': toExportNumber(record.invoicesPaid),
+    'Total Amount Paid': toExportNumber(record.totalAmountPaid),
+    'Pending Amount': toExportNumber(record.pendingAmount),
     'Next Invoice Status': record.nextInvoiceStatus,
     'Sales Person Name': record.salesPersonName ?? '',
   }))
@@ -358,6 +360,9 @@ export function exportOnboardingInvoicesExcel(records: OnboardingInvoiceRecord[]
 
   autoFitWorksheetColumns(worksheet, { maxWidth: 70 })
   applyBoldHeaderRow(worksheet)
+  applyNumberFormats(worksheet, {
+    moneyHeaders: ['Invoice Amount', 'Total Amount Paid', 'Pending Amount'],
+  })
 
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Onboarding & Invoices')

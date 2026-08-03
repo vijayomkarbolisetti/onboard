@@ -406,36 +406,75 @@ export function formatExportDate(value: string | undefined) {
   return `${day}-${month}-${year}`
 }
 
-/** Build pasteable document URLs for Excel export (signed S3 links). */
-export async function formatDocumentsForExport(
-  documents: { key: string; fileName: string }[] | undefined,
-  options?: { expiresInSeconds?: number },
-): Promise<string> {
-  if (!documents || documents.length === 0) return ''
+/**
+ * Export money/count fields as real Excel numbers so SUM works.
+ * Empty input → blank cell (not 0), unless value is explicitly 0.
+ */
+export function toExportNumber(value: string | number | undefined | null): number | '' {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string' && value.trim() === '') return ''
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : ''
+  }
+  const parsed = parseNumber(value)
+  if (parsed === 0) {
+    const digits = String(value).replace(/[^\d.-]/g, '')
+    if (!digits || digits === '-' || digits === '.' || digits === '-.') return ''
+  }
+  return parsed
+}
 
-  const expiresInSeconds = options?.expiresInSeconds ?? 60 * 60 * 24 * 7
-  const links: string[] = []
+/** Apply Excel number format to numeric data cells (skip header row). */
+export function applyNumberFormats(
+  worksheet: XLSX.WorkSheet,
+  options?: { moneyHeaders?: string[]; headerRow?: number },
+) {
+  if (!worksheet['!ref']) return
 
-  for (const doc of documents) {
-    try {
-      const params = new URLSearchParams({
-        key: doc.key,
-        fileName: doc.fileName,
-        expiresIn: String(expiresInSeconds),
-      })
-      const res = await fetch(`/api/documents/preview?${params.toString()}`)
-      const payload = (await res.json()) as { url?: string }
-      if (res.ok && payload.url) {
-        links.push(payload.url)
-      } else {
-        links.push(doc.fileName)
-      }
-    } catch {
-      links.push(doc.fileName)
+  const range = XLSX.utils.decode_range(worksheet['!ref'])
+  const headerRow = options?.headerRow ?? 0
+  const moneyHeaders = new Set(
+    (options?.moneyHeaders ?? []).map((h) => h.trim().toLowerCase()),
+  )
+
+  const moneyCols = new Set<number>()
+  if (moneyHeaders.size > 0) {
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const cell = worksheet[XLSX.utils.encode_cell({ r: headerRow, c: col })]
+      const header = String(cell?.v ?? '')
+        .trim()
+        .toLowerCase()
+      if (moneyHeaders.has(header)) moneyCols.add(col)
     }
   }
 
-  return links.join('\n')
+  for (let row = headerRow + 1; row <= range.e.r; row++) {
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const address = XLSX.utils.encode_cell({ r: row, c: col })
+      const cell = worksheet[address]
+      if (!cell || typeof cell.v !== 'number' || !Number.isFinite(cell.v)) continue
+      cell.t = 'n'
+      if (moneyCols.has(col) || moneyHeaders.size === 0) {
+        // Default: counts stay as integers look; money cols get 2 decimals when listed
+        cell.z = moneyCols.has(col) ? '#,##0.00' : Number.isInteger(cell.v) ? '0' : '#,##0.##'
+      }
+    }
+  }
+}
+
+/**
+ * Document names for Excel export.
+ * Uses file names only — does not call /api/documents/preview per file
+ * (that was causing dozens of network requests on download).
+ */
+export function formatDocumentsForExport(
+  documents: { key: string; fileName: string }[] | undefined,
+): string {
+  if (!documents || documents.length === 0) return ''
+  return documents
+    .map((doc) => String(doc.fileName ?? '').trim())
+    .filter(Boolean)
+    .join('\n')
 }
 
 function findHeaderRow(
@@ -584,6 +623,7 @@ export function writeExcelFile(
   headers: readonly string[],
   rows: Record<string, string | number>[],
   filename: string,
+  options?: { moneyHeaders?: string[] },
 ) {
   const worksheet =
     rows.length > 0
@@ -592,6 +632,7 @@ export function writeExcelFile(
 
   autoFitWorksheetColumns(worksheet)
   applyBoldHeaderRow(worksheet)
+  applyNumberFormats(worksheet, { moneyHeaders: options?.moneyHeaders })
 
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31))

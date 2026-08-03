@@ -4,6 +4,7 @@ import {
   formatTextCellValue,
   parseExcelDate,
   parseExcelSheet,
+  toExportNumber,
   writeExcelFile,
   downloadExcelTemplate,
 } from '@/lib/excelUtils'
@@ -27,11 +28,6 @@ export const ONBOARDING_HEADERS = [
   'Status',
   'Remark',
 ] as const
-
-function exportText(value: string | number | undefined | null) {
-  if (value === null || value === undefined) return ''
-  return String(value)
-}
 
 const HEADER_TO_FIELD: Record<string, keyof CreateOnboardingInput> = {
   organization: 'organization',
@@ -173,25 +169,27 @@ export function exportOnboardingsExcel(onboardings: Onboarding[]) {
   const rows = onboardings.map((item, index) => ({
     'S.No': index + 1,
     Organization: item.organization ?? '',
-    'Committed Months': exportText(item.committedMonths),
+    'Committed Months': toExportNumber(item.committedMonths),
     'Agreement Signed Date': formatExportDate(item.agreementSignedDate),
-    'No.of AI SDRs': exportText(item.noOfAiSdrs),
+    'No.of AI SDRs': toExportNumber(item.noOfAiSdrs),
     'Onboarding Date': formatExportDate(item.onboardingDate),
     'End Date': formatExportDate(item.endDate),
-    'Comitted Amount': exportText(item.committedAmount),
-    'Paid Amount': exportText(item.paidAmount),
+    'Comitted Amount': toExportNumber(item.committedAmount),
+    'Paid Amount': toExportNumber(item.paidAmount),
     '1st campaign Launch date': formatExportDate(item.campaignLaunchDate),
-    'no.of campaigns': exportText(item.noOfCampaigns),
-    'Targeted Leads': exportText(item.targetedLeads),
-    'Contacted Leads': exportText(item.contactedLeads),
-    'Interested Leads': exportText(item.interestedLeads),
-    'Total Replies': exportText(item.totalReplies),
+    'no.of campaigns': toExportNumber(item.noOfCampaigns),
+    'Targeted Leads': toExportNumber(item.targetedLeads),
+    'Contacted Leads': toExportNumber(item.contactedLeads),
+    'Interested Leads': toExportNumber(item.interestedLeads),
+    'Total Replies': toExportNumber(item.totalReplies),
     Status: item.status ?? '',
     Remark: item.remark ?? '',
   }))
 
   const timestamp = new Date().toISOString().slice(0, 10)
-  writeExcelFile('Client Tracker', ONBOARDING_HEADERS, rows, `client-tracker-${timestamp}.xlsx`)
+  writeExcelFile('Client Tracker', ONBOARDING_HEADERS, rows, `client-tracker-${timestamp}.xlsx`, {
+    moneyHeaders: ['Comitted Amount', 'Paid Amount'],
+  })
 }
 
 export function downloadOnboardingTemplate() {
