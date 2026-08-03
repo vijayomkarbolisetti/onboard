@@ -1,13 +1,9 @@
 import { NextResponse } from 'next/server'
+import { moduleIdFromDocumentFolder } from '@/lib/modulePermissions'
 import { deleteObject, isS3Configured } from '@/lib/s3'
-import { isTeamAuthContext, requireTeamAuth } from '@/lib/team-auth'
+import { isTeamAuthContext, requireModuleAccess } from '@/lib/team-auth'
 
 export async function DELETE(request: Request) {
-  const authResult = await requireTeamAuth(true)
-  if (!isTeamAuthContext(authResult)) {
-    return authResult
-  }
-
   if (!isS3Configured()) {
     return NextResponse.json(
       { error: 'Document storage is not configured. Add AWS S3 environment variables.' },
@@ -20,6 +16,17 @@ export async function DELETE(request: Request) {
     const key = String(searchParams.get('key') ?? '').trim()
     if (!key) {
       return NextResponse.json({ error: 'key is required' }, { status: 400 })
+    }
+
+    const folder = key.split('/')[0] ?? ''
+    const moduleId = moduleIdFromDocumentFolder(folder)
+    if (!moduleId) {
+      return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+    }
+
+    const authResult = await requireModuleAccess(moduleId, 'write')
+    if (!isTeamAuthContext(authResult)) {
+      return authResult
     }
 
     const parts = key.split('/')

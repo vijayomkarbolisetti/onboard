@@ -12,12 +12,19 @@ import {
 import { notify } from '@/lib/toast'
 import type { CreateOnboardingInput, Onboarding } from '@/types'
 
-export function useOnboardings() {
+export function useOnboardings(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true
   const [onboardings, setOnboardings] = useState<Onboarding[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setOnboardings([])
+      setError(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -30,7 +37,7 @@ export function useOnboardings() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [enabled])
 
   useEffect(() => {
     void load()

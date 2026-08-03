@@ -5,6 +5,7 @@ import { Layout } from '@/components/Layout'
 import { SingleOrgActivator } from '@/components/team/SingleOrgActivator'
 import { InviteTicketRedirect } from '@/components/team/InviteTicketRedirect'
 import { TeamInvitePanel } from '@/components/team/TeamInvitePanel'
+import { Dashboard } from '@/components/onboarding/Dashboard'
 import { Expenses } from '@/components/onboarding/Expenses'
 import { OnboardingDetails } from '@/components/onboarding/OnboardingDetails'
 import { OnboardingInvoices } from '@/components/onboarding/OnboardingInvoices'
@@ -16,9 +17,14 @@ import { useOnboardingInvoices } from '@/hooks/useOnboardingInvoices'
 import { useOnboardings } from '@/hooks/useOnboardings'
 import { useOpenInvoices } from '@/hooks/useOpenInvoices'
 import { usePaidInvoices } from '@/hooks/usePaidInvoices'
+import { useTeamRole } from '@/hooks/useTeamRole'
 import type { TabId } from '@/types'
 
 const tabMeta: Record<TabId, { title: string; subtitle: string }> = {
+  dashboard: {
+    title: 'Dashboard',
+    subtitle: 'Clients, invoices, amounts, and 6-month forecast',
+  },
   onboarding: {
     title: 'Client Tracker',
     subtitle: 'Manage campaign leads, replies and status',
@@ -46,13 +52,28 @@ const tabMeta: Record<TabId, { title: string; subtitle: string }> = {
 }
 
 export default function TrackerPage() {
-  const [activeTab, setActiveTab] = useState<TabId>('onboarding')
-  const onboardingState = useOnboardings()
-  const onboardingInvoicesState = useOnboardingInvoices()
-  const paidInvoicesState = usePaidInvoices()
-  const openInvoicesState = useOpenInvoices()
-  const expensesState = useExpenses()
+  const [activeTab, setActiveTab] = useState<TabId>('dashboard')
+  const { canView, firstViewableModule, isLoaded: roleLoaded } = useTeamRole()
+
+  const canOnboarding = roleLoaded && canView('onboarding')
+  const canOnboardingInvoices = roleLoaded && canView('onboarding-invoices')
+  const canPaidInvoices = roleLoaded && canView('paid-invoices')
+  const canOpenInvoices = roleLoaded && canView('open-invoices')
+  const canExpenses = roleLoaded && canView('expenses')
+
+  const onboardingState = useOnboardings({ enabled: canOnboarding })
+  const onboardingInvoicesState = useOnboardingInvoices({ enabled: canOnboardingInvoices })
+  const paidInvoicesState = usePaidInvoices({ enabled: canPaidInvoices })
+  const openInvoicesState = useOpenInvoices({ enabled: canOpenInvoices })
+  const expensesState = useExpenses({ enabled: canExpenses })
   const meta = tabMeta[activeTab]
+
+  useEffect(() => {
+    if (!roleLoaded) return
+    if (!canView(activeTab)) {
+      setActiveTab(firstViewableModule('dashboard'))
+    }
+  }, [roleLoaded, activeTab, canView, firstViewableModule])
 
   const companyNames = useMemo(
     () =>
@@ -64,23 +85,38 @@ export default function TrackerPage() {
   )
 
   useEffect(() => {
-    if (activeTab === 'onboarding') {
+    if (!roleLoaded) return
+
+    if (activeTab === 'dashboard') {
+      if (canOnboarding) void onboardingState.reload()
+      if (canOnboardingInvoices) void onboardingInvoicesState.reload()
+      if (canPaidInvoices) void paidInvoicesState.reload()
+      if (canOpenInvoices) void openInvoicesState.reload()
+      if (canExpenses) void expensesState.reload()
+    }
+    if (activeTab === 'onboarding' && canOnboarding) {
       void onboardingState.reload()
     }
-    if (activeTab === 'onboarding-invoices') {
+    if (activeTab === 'onboarding-invoices' && canOnboardingInvoices) {
       void onboardingInvoicesState.reload()
     }
-    if (activeTab === 'paid-invoices') {
+    if (activeTab === 'paid-invoices' && canPaidInvoices) {
       void paidInvoicesState.reload()
     }
-    if (activeTab === 'open-invoices') {
+    if (activeTab === 'open-invoices' && canOpenInvoices) {
       void openInvoicesState.reload()
     }
-    if (activeTab === 'expenses') {
+    if (activeTab === 'expenses' && canExpenses) {
       void expensesState.reload()
     }
   }, [
+    roleLoaded,
     activeTab,
+    canOnboarding,
+    canOnboardingInvoices,
+    canPaidInvoices,
+    canOpenInvoices,
+    canExpenses,
     onboardingState.reload,
     onboardingInvoicesState.reload,
     paidInvoicesState.reload,
@@ -88,8 +124,38 @@ export default function TrackerPage() {
     expensesState.reload,
   ])
 
+  const dashboardLoading =
+    !roleLoaded ||
+    (canOnboarding && onboardingState.loading) ||
+    (canOnboardingInvoices && onboardingInvoicesState.loading) ||
+    (canPaidInvoices && paidInvoicesState.loading) ||
+    (canOpenInvoices && openInvoicesState.loading) ||
+    (canExpenses && expensesState.loading)
+
+  const dashboardError =
+    (canOnboarding && onboardingState.error) ||
+    (canOnboardingInvoices && onboardingInvoicesState.error) ||
+    (canPaidInvoices && paidInvoicesState.error) ||
+    (canOpenInvoices && openInvoicesState.error) ||
+    (canExpenses && expensesState.error) ||
+    null
+
   const tabContent = (
     <>
+      {activeTab === 'dashboard' && (
+        <Dashboard
+          onboardings={canOnboarding ? onboardingState.onboardings : []}
+          onboardingInvoices={
+            canOnboardingInvoices ? onboardingInvoicesState.records : []
+          }
+          paidInvoices={canPaidInvoices ? paidInvoicesState.invoices : []}
+          openInvoices={canOpenInvoices ? openInvoicesState.invoices : []}
+          expenses={canExpenses ? expensesState.expenses : []}
+          loading={dashboardLoading}
+          error={dashboardError}
+        />
+      )}
+
       {activeTab === 'onboarding' && (
         <OnboardingDetails
           onboardings={onboardingState.onboardings}

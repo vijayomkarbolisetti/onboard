@@ -1,8 +1,16 @@
 import { clerkClient } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { isTeamAuthContext, requireTeamAuth } from '@/lib/team-auth'
+import {
+  defaultMemberModuleAccess,
+  sanitizeModuleAccessInput,
+} from '@/lib/modulePermissions'
+import { upsertPendingModuleAccess } from '@/lib/pendingModuleAccessStore'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function GET() {
   const authResult = await requireTeamAuth()
@@ -40,7 +48,7 @@ export async function POST(request: Request) {
     return authResult
   }
 
-  let body: { emailAddress?: string; role?: string }
+  let body: { emailAddress?: string; role?: string; moduleAccess?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -53,6 +61,12 @@ export async function POST(request: Request) {
   }
 
   const role = body.role === 'org:admin' ? 'org:admin' : 'org:member'
+  const moduleAccess =
+    role === 'org:admin'
+      ? defaultMemberModuleAccess()
+      : Object.keys(sanitizeModuleAccessInput(body.moduleAccess)).length > 0
+        ? sanitizeModuleAccessInput(body.moduleAccess)
+        : defaultMemberModuleAccess()
 
   try {
     const client = await clerkClient()
@@ -64,6 +78,37 @@ export async function POST(request: Request) {
       role,
       redirectUrl: `${origin}/accept-invitation`,
     })
+
+    if (role === 'org:member') {
+      try {
+        await upsertPendingModuleAccess({
+          orgId: authResult.orgId,
+          email: emailAddress,
+          moduleAccess,
+          invitationId: invitation.id,
+          updatedBy: authResult.userId,
+        })
+      } catch (err) {
+        // Invitation already sent — surface storage failure so admin can retry permissions later
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Invite sent, but failed to save module permissions'
+        return NextResponse.json(
+          {
+            invitation: {
+              id: invitation.id,
+              emailAddress: invitation.emailAddress,
+              role: invitation.role,
+              status: invitation.status,
+              createdAt: invitation.createdAt,
+            },
+            warning: message,
+          },
+          { status: 200 },
+        )
+      }
+    }
 
     return NextResponse.json({
       invitation: {

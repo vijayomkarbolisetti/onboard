@@ -140,7 +140,8 @@ export function OnboardingDetails({
   onDelete,
   onImport,
 }: OnboardingDetailsProps) {
-  const { canWrite } = useTeamRole()
+  const { canWriteModule } = useTeamRole()
+  const canWrite = canWriteModule('onboarding')
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Onboarding | null>(null)
   const [viewing, setViewing] = useState<Onboarding | null>(null)

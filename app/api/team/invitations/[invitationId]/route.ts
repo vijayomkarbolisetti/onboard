@@ -1,6 +1,7 @@
 import { clerkClient } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { isTeamAuthContext, requireTeamAuth } from '@/lib/team-auth'
+import { deletePendingModuleAccess } from '@/lib/pendingModuleAccessStore'
 
 type RouteContext = {
   params: Promise<{ invitationId: string }>
@@ -19,10 +20,23 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
   try {
     const client = await clerkClient()
+    const { data } = await client.organizations.getOrganizationInvitationList({
+      organizationId: authResult.orgId,
+      status: ['pending'],
+      limit: 100,
+    })
+    const invitation = data.find((item) => item.id === invitationId)
+
     await client.organizations.revokeOrganizationInvitation({
       organizationId: authResult.orgId,
       invitationId,
     })
+
+    if (invitation?.emailAddress) {
+      await deletePendingModuleAccess(authResult.orgId, invitation.emailAddress).catch(
+        () => undefined,
+      )
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

@@ -1,8 +1,10 @@
 'use client'
 
 import { WyraSelect } from '@/components/CompanyNameSelect'
+import { UsdEquivalentHint } from '@/components/UsdEquivalentHint'
 import { Plus, Save, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
+import { CURRENCY_OPTIONS, resolveCurrency } from '@/lib/currency'
 import { notify } from '@/lib/toast'
 import type {
   CreateOnboardingInvoiceInput,
@@ -30,6 +32,7 @@ const emptyForm: CreateOnboardingInvoiceInput = {
   personEmailId: '',
   onBoardDate: '',
   invoiceAmount: '',
+  currency: 'USD',
   firstInvoiceDate: '',
   invoiceCycle: '',
   invoicesGenerated: '',
@@ -57,6 +60,7 @@ function toFormValues(record: OnboardingInvoiceRecord): CreateOnboardingInvoiceI
     personEmailId: record.personEmailId ?? '',
     onBoardDate: record.onBoardDate ?? '',
     invoiceAmount: toFormText(record.invoiceAmount),
+    currency: resolveCurrency(record.currency, record.invoiceAmount),
     firstInvoiceDate: record.firstInvoiceDate ?? '',
     invoiceCycle: record.invoiceCycle ?? '',
     invoicesGenerated: toFormText(record.invoicesGenerated),
@@ -106,6 +110,7 @@ export function OnboardingInvoiceFormModal({
         personEmailId: form.personEmailId.trim(),
         onBoardDate: form.onBoardDate,
         invoiceAmount: form.invoiceAmount.trim(),
+        currency: form.currency.trim() || 'USD',
         firstInvoiceDate: form.firstInvoiceDate,
         invoiceCycle: form.invoiceCycle.trim(),
         invoicesGenerated: form.invoicesGenerated.trim(),
@@ -268,13 +273,23 @@ export function OnboardingInvoiceFormModal({
               />
             </Field>
 
-            <Field label="Invoice Amount (USD)">
+            <Field label="Invoice Amount">
               <input
                 type="text"
                 className="wyra-input"
                 value={form.invoiceAmount}
                 onChange={(e) => set('invoiceAmount', e.target.value)}
                 placeholder="Enter amount"
+              />
+              <UsdEquivalentHint amount={form.invoiceAmount} currency={form.currency} />
+            </Field>
+
+            <Field label="Currency">
+              <WyraSelect
+                value={form.currency}
+                onChange={(value) => set('currency', value)}
+                allowEmpty={false}
+                options={CURRENCY_OPTIONS.map((code) => ({ value: code, label: code }))}
               />
             </Field>
 
@@ -318,7 +333,7 @@ export function OnboardingInvoiceFormModal({
                 />
               </Field>
 
-              <Field label="Total Amount Paid (USD)">
+              <Field label="Total Amount Paid">
                 <input
                   type="text"
                   className="wyra-input"
@@ -328,7 +343,7 @@ export function OnboardingInvoiceFormModal({
                 />
               </Field>
 
-              <Field label="Pending Amount (USD)">
+              <Field label="Pending Amount">
                 <input
                   type="text"
                   className="wyra-input"

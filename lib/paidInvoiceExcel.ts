@@ -1,4 +1,5 @@
 import type { CreatePaidInvoiceInput, PaidInvoice } from '@/types'
+import { resolveCurrency } from '@/lib/currency'
 import {
   formatDocumentsForExport,
   formatExportDate,
@@ -18,6 +19,7 @@ export const PAID_INVOICE_HEADERS = [
   'Company Name',
   'Invoice Number',
   'Invoice Amount',
+  'Currency',
   'Status',
   'Payment Date',
   'Payment Method',
@@ -39,6 +41,7 @@ const HEADER_TO_FIELD: Record<string, keyof CreatePaidInvoiceInput> = {
   'invoice #': 'invoiceNumber',
   'invoice id': 'invoiceNumber',
   'invoice amount': 'invoiceAmount',
+  currency: 'currency',
   status: 'status',
   'payment date': 'paymentDate',
   'payment method': 'paymentMethod',
@@ -80,6 +83,7 @@ function resolveField(header: string): keyof CreatePaidInvoiceInput | null {
   if (normalized.includes('payment') && normalized.includes('method')) return 'paymentMethod'
   if (normalized.includes('invoice') && normalized.includes('amount')) return 'invoiceAmount'
   if (normalized.includes('invoice') && normalized.includes('date')) return 'invoiceDate'
+  if (normalized === 'currency' || normalized === 'curr') return 'currency'
   if (normalized === 'status') return 'status'
   if (normalized.includes('sales') && normalized.includes('person')) return 'salesPersonName'
   if (normalized === 'salesperson') return 'salesPersonName'
@@ -94,6 +98,7 @@ function emptyRecord(): CreatePaidInvoiceInput {
     companyName: '',
     invoiceNumber: '',
     invoiceAmount: '',
+    currency: 'USD',
     status: '',
     paymentDate: '',
     paymentMethod: '',
@@ -147,6 +152,7 @@ export async function exportPaidInvoicesExcel(invoices: PaidInvoice[]) {
       'Company Name': formatCompanyNames(invoice.companyName),
       'Invoice Number': resolveInvoiceNumber(invoice as unknown as Record<string, unknown>),
       'Invoice Amount': invoice.invoiceAmount != null ? String(invoice.invoiceAmount) : '',
+      Currency: resolveCurrency(invoice.currency, invoice.invoiceAmount),
       Status: invoice.status ?? '',
       'Payment Date': formatExportDate(invoice.paymentDate),
       'Payment Method': invoice.paymentMethod ?? '',

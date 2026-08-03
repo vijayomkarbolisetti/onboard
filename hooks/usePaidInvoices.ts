@@ -11,12 +11,19 @@ import {
 import { notify } from '@/lib/toast'
 import type { CreatePaidInvoiceInput, PaidInvoice } from '@/types'
 
-export function usePaidInvoices() {
+export function usePaidInvoices(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true
   const [invoices, setInvoices] = useState<PaidInvoice[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setInvoices([])
+      setError(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -28,7 +35,7 @@ export function usePaidInvoices() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [enabled])
 
   useEffect(() => {
     void load()

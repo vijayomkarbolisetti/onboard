@@ -40,6 +40,7 @@ const columns: { key: keyof OnboardingInvoiceRecord | 'actions' | 'sNo'; label: 
   { key: 'personEmailId', label: 'Person Email Id' },
   { key: 'onBoardDate', label: 'On Board Date' },
   { key: 'invoiceAmount', label: 'Invoice Amount' },
+  { key: 'currency', label: 'Currency' },
   { key: 'firstInvoiceDate', label: '1st Invoice Date' },
   { key: 'invoiceCycle', label: 'Invoice Cycle' },
   { key: 'invoicesGenerated', label: 'No. Invoices Generated' },
@@ -121,6 +122,9 @@ function cellValue(
   if (key === 'invoiceAmount' || key === 'totalAmountPaid' || key === 'pendingAmount') {
     return displayFieldValue(val as string | number | undefined)
   }
+  if (key === 'currency') {
+    return String(val ?? '').trim() || 'USD'
+  }
   if (key === 'invoicesGenerated' || key === 'invoicesPaid') {
     return displayFieldValue(val as string | number | undefined)
   }
@@ -172,7 +176,8 @@ export function OnboardingInvoices({
   onDelete,
   onImport,
 }: OnboardingInvoicesProps) {
-  const { canWrite } = useTeamRole()
+  const { canWriteModule } = useTeamRole()
+  const canWrite = canWriteModule('onboarding-invoices')
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<OnboardingInvoiceRecord | null>(null)
   const [viewing, setViewing] = useState<OnboardingInvoiceRecord | null>(null)

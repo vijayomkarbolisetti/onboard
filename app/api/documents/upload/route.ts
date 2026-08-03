@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
+import { moduleIdFromDocumentFolder } from '@/lib/modulePermissions'
 import { buildObjectKey, isS3Configured, uploadObject } from '@/lib/s3'
-import { isTeamAuthContext, requireTeamAuth } from '@/lib/team-auth'
+import { isTeamAuthContext, requireModuleAccess } from '@/lib/team-auth'
 
 export const runtime = 'nodejs'
 
@@ -20,11 +21,6 @@ const ALLOWED_CONTENT_TYPES = new Set([
 ])
 
 export async function POST(request: Request) {
-  const authResult = await requireTeamAuth(true)
-  if (!isTeamAuthContext(authResult)) {
-    return authResult
-  }
-
   if (!isS3Configured()) {
     return NextResponse.json(
       { error: 'Document storage is not configured. Add AWS S3 environment variables.' },
@@ -43,6 +39,17 @@ export async function POST(request: Request) {
     if (!ALLOWED_FOLDERS.has(folder)) {
       return NextResponse.json({ error: 'Invalid document folder' }, { status: 400 })
     }
+
+    const moduleId = moduleIdFromDocumentFolder(folder)
+    if (!moduleId) {
+      return NextResponse.json({ error: 'Invalid document folder' }, { status: 400 })
+    }
+
+    const authResult = await requireModuleAccess(moduleId, 'write')
+    if (!isTeamAuthContext(authResult)) {
+      return authResult
+    }
+
     if (file.size <= 0) {
       return NextResponse.json({ error: 'Invalid file size' }, { status: 400 })
     }

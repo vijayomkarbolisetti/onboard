@@ -35,6 +35,7 @@ const columns = [
   'Company Name',
   'Invoice Number',
   'Invoice Amount',
+  'Currency',
   'Status',
   'Sales Person',
   'Documents',
@@ -69,6 +70,8 @@ function cellValue(
       return resolveInvoiceNumber(invoice as unknown as Record<string, unknown>) || '—'
     case 'Invoice Amount':
       return displayFieldValue(invoice.invoiceAmount)
+    case 'Currency':
+      return invoice.currency?.trim() || 'USD'
     case 'Status':
       return invoice.status || '—'
     case 'Sales Person':
@@ -112,7 +115,8 @@ export function OpenInvoices({
   onDelete,
   onImport,
 }: OpenInvoicesProps) {
-  const { canWrite } = useTeamRole()
+  const { canWriteModule } = useTeamRole()
+  const canWrite = canWriteModule('open-invoices')
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<OpenInvoice | null>(null)
   const [viewing, setViewing] = useState<OpenInvoice | null>(null)

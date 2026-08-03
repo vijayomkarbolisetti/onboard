@@ -11,12 +11,19 @@ import {
 import { notify } from '@/lib/toast'
 import type { CreateExpenseInput, Expense } from '@/types'
 
-export function useExpenses() {
+export function useExpenses(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true
   const [expenses, setExpenses] = useState<Expense[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setExpenses([])
+      setError(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -28,7 +35,7 @@ export function useExpenses() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [enabled])
 
   useEffect(() => {
     void load()

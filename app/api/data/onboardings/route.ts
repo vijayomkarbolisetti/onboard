@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createOrgFirestoreStore } from '@/lib/orgFirestore'
-import { isTeamAuthContext, requireTeamAuth } from '@/lib/team-auth'
+import { isTeamAuthContext, requireModuleAccess } from '@/lib/team-auth'
 import type { CreateOnboardingInput, Onboarding } from '@/types'
 
 const store = createOrgFirestoreStore<Onboarding>('onboardings')
 
 export async function GET() {
-  const authResult = await requireTeamAuth()
+  const authResult = await requireModuleAccess('onboarding', 'view')
   if (!isTeamAuthContext(authResult)) {
     return authResult
   }
@@ -21,7 +21,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const authResult = await requireTeamAuth(true)
+  const authResult = await requireModuleAccess('onboarding', 'write')
   if (!isTeamAuthContext(authResult)) {
     return authResult
   }

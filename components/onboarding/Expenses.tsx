@@ -215,7 +215,8 @@ export function Expenses({
   onDelete,
   onImport,
 }: ExpensesProps) {
-  const { canWrite } = useTeamRole()
+  const { canWriteModule } = useTeamRole()
+  const canWrite = canWriteModule('expenses')
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [viewing, setViewing] = useState<Expense | null>(null)

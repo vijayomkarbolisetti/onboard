@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createOrgFirestoreStore } from '@/lib/orgFirestore'
 import { normalizeOnboardingInvoiceRecord } from '@/lib/onboardingInvoiceExcel'
-import { isTeamAuthContext, requireTeamAuth } from '@/lib/team-auth'
+import { isTeamAuthContext, requireModuleAccess } from '@/lib/team-auth'
 import type { CreateOnboardingInvoiceInput, OnboardingInvoiceRecord } from '@/types'
 
 const store = createOrgFirestoreStore<OnboardingInvoiceRecord>('onboarding_invoices')
 
 export async function GET() {
-  const authResult = await requireTeamAuth()
+  const authResult = await requireModuleAccess('onboarding-invoices', 'view')
   if (!isTeamAuthContext(authResult)) {
     return authResult
   }
@@ -23,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const authResult = await requireTeamAuth(true)
+  const authResult = await requireModuleAccess('onboarding-invoices', 'write')
   if (!isTeamAuthContext(authResult)) {
     return authResult
   }
