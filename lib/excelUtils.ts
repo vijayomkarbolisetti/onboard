@@ -463,10 +463,57 @@ export function applyNumberFormats(
 }
 
 /**
- * Document names for Excel export.
- * Uses file names only — does not call /api/documents/preview per file
- * (that was causing dozens of network requests on download).
+ * Build clickable document links for Excel without calling preview APIs at export time.
+ * Links point at `/api/documents/preview?...&redirect=1`, which opens the file in-browser when clicked.
  */
+export function resolveDocumentsForExport(
+  documents: { key: string; fileName: string }[] | undefined,
+): { text: string; url?: string } {
+  if (!documents || documents.length === 0) return { text: '' }
+
+  const origin =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : ''
+
+  const resolved = documents
+    .map((doc) => {
+      const fileName = String(doc.fileName ?? '').trim() || 'document'
+      const key = String(doc.key ?? '').trim()
+      if (!key) return { fileName, url: null as string | null }
+      const params = new URLSearchParams({
+        key,
+        fileName,
+        redirect: '1',
+      })
+      const path = `/api/documents/preview?${params.toString()}`
+      return {
+        fileName,
+        url: origin ? `${origin}${path}` : path,
+      }
+    })
+    .filter((item) => item.fileName)
+
+  if (resolved.length === 0) return { text: '' }
+
+  const primary = resolved.find((item) => item.url) ?? resolved[0]
+  const text =
+    resolved.length === 1
+      ? primary.fileName
+      : resolved
+          .map((item, index) => {
+            if (index === 0 && item.url) return item.fileName
+            return item.url ? `${item.fileName}\n${item.url}` : item.fileName
+          })
+          .join('\n\n')
+
+  return {
+    text,
+    url: primary.url ?? undefined,
+  }
+}
+
+/** Plain filenames only (no links). */
 export function formatDocumentsForExport(
   documents: { key: string; fileName: string }[] | undefined,
 ): string {
@@ -475,6 +522,35 @@ export function formatDocumentsForExport(
     .map((doc) => String(doc.fileName ?? '').trim())
     .filter(Boolean)
     .join('\n')
+}
+
+function applyColumnHyperlinks(
+  worksheet: XLSX.WorkSheet,
+  headers: readonly string[],
+  columnHyperlinks?: Record<string, Array<string | undefined>>,
+) {
+  if (!columnHyperlinks || !worksheet['!ref']) return
+
+  for (const [header, urls] of Object.entries(columnHyperlinks)) {
+    const col = headers.findIndex((h) => h === header)
+    if (col < 0) continue
+
+    urls.forEach((url, rowIndex) => {
+      if (!url) return
+      const address = XLSX.utils.encode_cell({ r: rowIndex + 1, c: col })
+      const cell = worksheet[address]
+      if (!cell) return
+      cell.l = { Target: url, Tooltip: 'Open document' }
+      cell.s = {
+        ...(cell.s ?? {}),
+        font: {
+          ...((cell.s as { font?: object } | undefined)?.font ?? {}),
+          color: { rgb: '0563C1' },
+          underline: true,
+        },
+      }
+    })
+  }
 }
 
 function findHeaderRow(
@@ -623,7 +699,10 @@ export function writeExcelFile(
   headers: readonly string[],
   rows: Record<string, string | number>[],
   filename: string,
-  options?: { moneyHeaders?: string[] },
+  options?: {
+    moneyHeaders?: string[]
+    columnHyperlinks?: Record<string, Array<string | undefined>>
+  },
 ) {
   const worksheet =
     rows.length > 0
@@ -633,6 +712,7 @@ export function writeExcelFile(
   autoFitWorksheetColumns(worksheet)
   applyBoldHeaderRow(worksheet)
   applyNumberFormats(worksheet, { moneyHeaders: options?.moneyHeaders })
+  applyColumnHyperlinks(worksheet, headers, options?.columnHyperlinks)
 
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31))

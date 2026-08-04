@@ -302,7 +302,7 @@ export function ClientDetailsModal({
         }}
         aria-label="Close client details"
       />
-      <div className="relative w-full max-w-3xl overflow-hidden theme-modal">
+      <div className="relative w-full max-w-4xl overflow-hidden theme-modal">
         <div className="h-1 bg-wyra-gradient" />
         <div className="flex items-start justify-between gap-3 border-b border-theme px-6 py-5">
           <div>
@@ -401,7 +401,7 @@ export function ExpenseToolDetailsModal({
         }}
         aria-label="Close expense tool details"
       />
-      <div className="relative w-full max-w-4xl overflow-hidden theme-modal">
+      <div className="relative w-full max-w-5xl overflow-hidden theme-modal">
         <div className="h-1 bg-wyra-gradient" />
         <div className="flex items-start justify-between gap-3 border-b border-theme px-6 py-5">
           <div>
@@ -515,12 +515,14 @@ export function ExpenseMonthToolsModal({
   monthLabel,
   displayCurrency,
   tools,
+  onDownload,
 }: {
   open: boolean
   onClose: () => void
   monthLabel: string
   displayCurrency: string
   tools: ExpenseMonthToolRow[]
+  onDownload: () => void
 }) {
   if (!open) return null
   const justOpenedRef = useModalOpenGuard(open)
@@ -538,7 +540,7 @@ export function ExpenseMonthToolsModal({
         }}
         aria-label="Close month tools details"
       />
-      <div className="relative w-full max-w-2xl overflow-hidden theme-modal">
+      <div className="relative w-full max-w-3xl overflow-hidden theme-modal">
         <div className="h-1 bg-wyra-gradient" />
         <div className="flex items-start justify-between gap-3 border-b border-theme px-6 py-5">
           <div>
@@ -586,6 +588,24 @@ export function ExpenseMonthToolsModal({
             </div>
           </div>
         </div>
+        <div className="flex flex-wrap justify-end gap-3 border-t border-theme px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-theme px-5 py-2.5 text-sm font-medium text-theme-muted hover:bg-theme-hover hover:text-theme-fg"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={onDownload}
+            disabled={tools.length === 0}
+            className="btn-wyra inline-flex items-center gap-2 disabled:opacity-60"
+          >
+            <Download size={16} />
+            Download Excel
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -630,7 +650,7 @@ export function InvoiceSummaryModal({
         }}
         aria-label="Close invoice summary"
       />
-      <div className="relative w-full max-w-lg overflow-hidden theme-modal">
+      <div className="relative w-full max-w-5xl overflow-hidden theme-modal">
         <div className="h-1 bg-wyra-gradient" />
         <div className="flex items-start justify-between gap-3 border-b border-theme px-6 py-5">
           <div>
@@ -676,21 +696,21 @@ export function InvoiceSummaryModal({
             Raised = paid + pending. Amounts are shown in {displayCurrency}.
           </p>
           <div className="overflow-hidden rounded-2xl border border-theme">
-            <div className="grid grid-cols-[88px_1fr_1fr_120px_120px] gap-2 bg-theme-elevated px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-theme-muted">
+            <div className="grid grid-cols-[100px_minmax(0,1.2fr)_minmax(0,1.4fr)_90px_130px] gap-3 bg-theme-elevated px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-theme-muted">
               <span>Date</span>
               <span>Customer</span>
               <span>Company</span>
               <span className="text-right">Type</span>
               <span className="text-right">Amount</span>
             </div>
-            <div className="max-h-56 overflow-y-auto">
+            <div className="max-h-72 overflow-y-auto">
               {rows.length === 0 ? (
                 <p className="px-3 py-4 text-sm text-theme-muted">No invoices for this selection.</p>
               ) : (
                 rows.map((row, idx) => (
                   <div
                     key={`${row.invoiceNumber}-${idx}`}
-                    className="grid grid-cols-[88px_1fr_1fr_120px_120px] gap-2 border-t border-theme px-3 py-2 text-xs text-theme-body"
+                    className="grid grid-cols-[100px_minmax(0,1.2fr)_minmax(0,1.4fr)_90px_130px] gap-3 border-t border-theme px-3 py-2 text-xs text-theme-body"
                   >
                     <span>{formatExportDate(row.invoiceDate)}</span>
                     <span className="truncate" title={row.customerName}>

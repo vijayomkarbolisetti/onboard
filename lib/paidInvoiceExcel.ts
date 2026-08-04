@@ -1,12 +1,12 @@
 import type { CreateOpenInvoiceInput, CreatePaidInvoiceInput, PaidInvoice } from '@/types'
 import { resolveCurrency } from '@/lib/currency'
 import {
-  formatDocumentsForExport,
   formatExportDate,
   formatTextCellValue,
   matchesInvoiceNumberHeader,
   parseExcelDate,
   parseExcelSheet,
+  resolveDocumentsForExport,
   toExportNumber,
   writeExcelFile,
   downloadExcelTemplate,
@@ -238,8 +238,12 @@ function mapOpenSuggestionToPaid(
 
 export async function exportPaidInvoicesExcel(invoices: PaidInvoice[]) {
   const rows = []
+  const documentLinks: Array<string | undefined> = []
+
   for (let index = 0; index < invoices.length; index++) {
     const invoice = invoices[index]
+    const documents = resolveDocumentsForExport(invoice.documents)
+    documentLinks.push(documents.url)
     rows.push({
       'S.No': index + 1,
       'Invoice Date': formatExportDate(invoice.invoiceDate),
@@ -252,13 +256,14 @@ export async function exportPaidInvoicesExcel(invoices: PaidInvoice[]) {
       'Payment Date': formatExportDate(invoice.paymentDate),
       'Payment Method': invoice.paymentMethod ?? '',
       'Sales Person Name': invoice.salesPersonName ?? '',
-      Documents: await formatDocumentsForExport(invoice.documents),
+      Documents: documents.text,
     })
   }
 
   const timestamp = new Date().toISOString().slice(0, 10)
   writeExcelFile('Paid Invoices', PAID_INVOICE_HEADERS, rows, `paid-invoices-${timestamp}.xlsx`, {
     moneyHeaders: ['Invoice Amount'],
+    columnHyperlinks: { Documents: documentLinks },
   })
 }
 
