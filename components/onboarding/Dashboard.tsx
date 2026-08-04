@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -14,7 +14,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Download, LayoutDashboard } from 'lucide-react'
+import { Download, Info, LayoutDashboard } from 'lucide-react'
 import { WyraSelect } from '@/components/CompanyNameSelect'
 import { useTheme } from '@/components/ThemeProvider'
 import {
@@ -65,18 +65,33 @@ function StatCard({
   amount,
   accent,
   currency,
+  amountLabel = 'Amount',
 }: {
   label: string
   count: number
   amount: number
   accent: string
   currency: string
+  amountLabel?: string
 }) {
   return (
     <div className="glass-card rounded-2xl border border-theme p-5">
-      <p className="text-sm font-medium text-theme-muted">{label}</p>
-      <p className={cn('mt-2 text-3xl font-bold tracking-tight', accent)}>{count}</p>
-      <p className="mt-1 text-sm text-theme-body">{formatMoney(amount, currency)}</p>
+      <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-theme-muted">
+            {label}
+          </p>
+          <p className={cn('mt-2 text-3xl font-bold tracking-tight', accent)}>{count}</p>
+        </div>
+        <div className="sm:border-l sm:border-theme sm:pl-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-theme-muted">
+            {amountLabel}
+          </p>
+          <p className="mt-2 text-xl font-semibold tracking-tight text-theme-fg">
+            {formatMoney(amount, currency)}
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
@@ -139,6 +154,108 @@ function MonthYearFilters({
           options={years.map((y) => ({ value: y, label: y }))}
         />
       </div>
+    </div>
+  )
+}
+
+function FxRateInfo({
+  rateLabel,
+  date,
+  source,
+  loading,
+  warning,
+  displayCurrency,
+}: {
+  rateLabel: string | null
+  date?: string
+  source?: string
+  loading: boolean
+  warning: string | null
+  displayCurrency: string
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onPointerDown(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const rateLines = (rateLabel ?? '')
+    .split(' · ')
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  return (
+    <div
+      ref={rootRef}
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        aria-label="Currency conversion info"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          'inline-flex h-9 w-9 items-center justify-center rounded-xl border border-theme text-theme-muted transition',
+          'hover:border-aqua/40 hover:bg-aqua/10 hover:text-aqua',
+          open && 'border-aqua/40 bg-aqua/10 text-aqua',
+        )}
+      >
+        <Info size={16} />
+      </button>
+
+      {open ? (
+        <div
+          role="tooltip"
+          className="absolute left-0 top-[calc(100%+8px)] z-40 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-theme bg-theme-surface p-4 shadow-lg sm:left-auto sm:right-0"
+        >
+          <p className="text-sm font-semibold text-theme-fg">Currency conversion</p>
+          <p className="mt-1 text-xs leading-relaxed text-theme-muted">
+            All amounts (USD, INR, EUR, …) convert to{' '}
+            <span className="font-semibold text-theme-fg">{displayCurrency}</span> using
+            today&apos;s FX rates.
+          </p>
+
+          <div className="mt-3 rounded-xl border border-theme bg-theme-elevated/50 px-3 py-2.5">
+            {loading && !rateLabel ? (
+              <p className="text-xs text-theme-muted">Loading FX rates…</p>
+            ) : rateLines.length > 0 ? (
+              <ul className="space-y-1.5">
+                {rateLines.map((line) => (
+                  <li key={line} className="text-xs font-medium text-theme-body">
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-theme-muted">FX rates unavailable.</p>
+            )}
+            {(date || source) && (
+              <p className="mt-2 text-[11px] text-theme-muted">
+                {date ?? '—'}
+                {source ? ` · ${source}` : ''}
+              </p>
+            )}
+            {warning ? <p className="mt-2 text-[11px] text-amber-500">{warning}</p> : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -342,20 +459,28 @@ export function Dashboard({
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-2 text-theme-muted">
             <LayoutDashboard className="h-4 w-4 text-aqua" />
-            <span className="text-sm">
-              All currencies (USD, INR, EUR, …) convert to {displayCurrency} at today’s rate
-            </span>
+            <span className="text-sm">Show amounts in</span>
           </div>
-          <div className="min-w-[240px]">
-            <WyraSelect
-              value={currencyFilter}
-              onChange={setCurrencyFilter}
-              allowEmpty={false}
-              placeholder="Currency"
-              options={currencyOptions}
+          <div className="flex items-center gap-1.5">
+            <div className="min-w-[220px]">
+              <WyraSelect
+                value={currencyFilter}
+                onChange={setCurrencyFilter}
+                allowEmpty={false}
+                placeholder="Currency"
+                options={currencyOptions}
+              />
+            </div>
+            <FxRateInfo
+              rateLabel={rateLabel}
+              date={fxPayload?.date}
+              source={fxPayload?.source}
+              loading={fxLoading}
+              warning={fxError}
+              displayCurrency={displayCurrency}
             />
           </div>
         </div>
@@ -364,24 +489,6 @@ export function Dashboard({
           Download detailed report
         </button>
       </div>
-
-      {rateLabel || fxError ? (
-        <div className="rounded-xl border border-theme bg-theme-elevated/60 px-4 py-3 text-sm text-theme-body">
-          {rateLabel ? (
-            <span>
-              Today&apos;s FX ({fxPayload?.date ?? '—'}
-              {fxPayload?.source ? ` · ${fxPayload.source}` : ''}): {rateLabel}
-            </span>
-          ) : fxLoading ? (
-            <span className="text-theme-muted">Loading FX rates…</span>
-          ) : null}
-          {fxError ? (
-            <p className={`text-xs text-amber-500 ${rateLabel || fxLoading ? 'mt-1' : ''}`}>
-              {fxError}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
 
       {/* Clients */}
       <section className="space-y-4">
@@ -401,34 +508,22 @@ export function Dashboard({
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <StatCard
-            label="Total clients"
-            count={filteredClients.length}
-            amount={committedTotal}
-            accent="text-aqua"
-            currency={displayCurrency}
-          />
-          <StatCard
-            label="Statuses tracked"
-            count={statusSlices.length}
-            amount={statusSlices.reduce((s, x) => s + x.amount, 0)}
-            accent="text-wyra-blue"
-            currency={displayCurrency}
-          />
-          <StatCard
-            label="Months with signups"
-            count={clientMonths.length}
-            amount={clientMonths.reduce((s, m) => s + m.amount, 0)}
-            accent="text-lime"
-            currency={displayCurrency}
-          />
-        </div>
-
         <div className="grid gap-4 lg:grid-cols-2">
           <ChartCard
             title="Overall clients"
-            subtitle="Distribution by status (count + committed amount in tooltip)"
+            subtitle="Distribution by status · hover for count and committed amount"
+            actions={
+              <div className="rounded-xl border border-theme bg-theme-elevated/50 px-3 py-2 text-right">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-theme-muted">
+                  Total clients
+                </p>
+                <p className="text-lg font-bold text-aqua">{filteredClients.length}</p>
+                <p className="text-[11px] font-medium text-theme-muted">Committed amount</p>
+                <p className="text-sm font-semibold text-theme-fg">
+                  {formatMoney(committedTotal, displayCurrency)}
+                </p>
+              </div>
+            }
           >
             <div className="h-72">
               {statusSlices.length === 0 ? (
