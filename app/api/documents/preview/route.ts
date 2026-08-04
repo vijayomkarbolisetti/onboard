@@ -19,6 +19,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const key = String(searchParams.get('key') ?? '').trim()
     const fileName = String(searchParams.get('fileName') ?? '').trim()
+    const redirect = ['1', 'true', 'yes'].includes(
+      String(searchParams.get('redirect') ?? '').trim().toLowerCase(),
+    )
     const expiresRaw = Number(searchParams.get('expiresIn') ?? '')
     const expiresInSeconds =
       Number.isFinite(expiresRaw) && expiresRaw > 0
@@ -43,6 +46,12 @@ export async function GET(request: Request) {
       fileName: fileName || undefined,
       expiresInSeconds,
     })
+
+    // Excel hyperlinks use redirect=1 so the browser opens the file directly (no JSON).
+    if (redirect) {
+      return NextResponse.redirect(url, 302)
+    }
+
     return NextResponse.json({ url })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to create preview URL'

@@ -1,12 +1,12 @@
 import type { CreateOpenInvoiceInput, OpenInvoice } from '@/types'
 import { resolveCurrency } from '@/lib/currency'
 import {
-  formatDocumentsForExport,
   formatExportDate,
   formatTextCellValue,
   matchesInvoiceNumberHeader,
   parseExcelDate,
   parseExcelSheet,
+  resolveDocumentsForExport,
   toExportNumber,
   writeExcelFile,
   downloadExcelTemplate,
@@ -306,8 +306,12 @@ function suggestFromFileName(fileName: string): Partial<CreateOpenInvoiceInput> 
 
 export async function exportOpenInvoicesExcel(invoices: OpenInvoice[]) {
   const rows = []
+  const documentLinks: Array<string | undefined> = []
+
   for (let index = 0; index < invoices.length; index++) {
     const invoice = invoices[index]
+    const documents = resolveDocumentsForExport(invoice.documents)
+    documentLinks.push(documents.url)
     rows.push({
       'S.No': index + 1,
       'Invoice Date': formatExportDate(invoice.invoiceDate),
@@ -318,7 +322,7 @@ export async function exportOpenInvoicesExcel(invoices: OpenInvoice[]) {
       Currency: resolveCurrency(invoice.currency, invoice.invoiceAmount),
       Status: invoice.status ?? '',
       'Sales Person Name': invoice.salesPersonName ?? '',
-      Documents: await formatDocumentsForExport(invoice.documents),
+      Documents: documents.text,
       Notes: invoice.notes ?? '',
     })
   }
@@ -326,6 +330,7 @@ export async function exportOpenInvoicesExcel(invoices: OpenInvoice[]) {
   const timestamp = new Date().toISOString().slice(0, 10)
   writeExcelFile('Open Invoices', OPEN_INVOICE_HEADERS, rows, `open-invoices-${timestamp}.xlsx`, {
     moneyHeaders: ['Invoice Amount'],
+    columnHyperlinks: { Documents: documentLinks },
   })
 }
 

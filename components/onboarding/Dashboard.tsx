@@ -35,7 +35,7 @@ import {
 } from '@/lib/dashboardAnalytics'
 import { formatMoney, shortMoneyAxis } from '@/lib/currency'
 import { formatFxBanner, FX_DISPLAY_CURRENCIES } from '@/lib/fx'
-import { buildAndDownloadDashboardReport, downloadInvoiceModalExcel } from '@/lib/dashboardExcel'
+import { buildAndDownloadDashboardReport, downloadExpenseMonthToolsExcel, downloadInvoiceModalExcel } from '@/lib/dashboardExcel'
 import { useFxRates } from '@/hooks/useFxRates'
 import { formatCompanyNames, resolveInvoiceNumber } from '@/utils/format'
 import {
@@ -522,7 +522,7 @@ export function Dashboard({
     })
   }
 
-  if (loading || (fxLoading && !fxPayload)) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center py-24 text-theme-muted">
         Loading dashboard…
@@ -783,6 +783,13 @@ export function Dashboard({
         monthLabel={selectedExpenseToolMonthLabel}
         displayCurrency={displayCurrency}
         tools={selectedMonthTools}
+        onDownload={() =>
+          downloadExpenseMonthToolsExcel({
+            monthLabel: selectedExpenseToolMonthLabel,
+            displayCurrency,
+            tools: selectedMonthTools,
+          })
+        }
       />
 
       <InvoiceSummaryModal

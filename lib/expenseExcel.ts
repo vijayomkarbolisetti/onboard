@@ -1,13 +1,13 @@
 import type { CreateExpenseInput, Expense } from '@/types'
 import {
-  formatDocumentsForExport,
   formatExportDate,
-  formatTextCellValue,
   parseExcelDate,
   parseExcelSheet,
+  resolveDocumentsForExport,
   toExportNumber,
   writeExcelFile,
   downloadExcelTemplate,
+  formatTextCellValue,
 } from '@/lib/excelUtils'
 import { extractPdfText } from '@/lib/openInvoiceExcel'
 
@@ -275,8 +275,12 @@ function suggestExpenseFromFileName(fileName: string): Partial<CreateExpenseInpu
 
 export async function exportExpensesExcel(expenses: Expense[]) {
   const rows = []
+  const documentLinks: Array<string | undefined> = []
+
   for (let index = 0; index < expenses.length; index++) {
     const expense = expenses[index]
+    const documents = resolveDocumentsForExport(expense.documents)
+    documentLinks.push(documents.url)
     rows.push({
       NO: index + 1,
       'Tool Name': expense.toolName ?? '',
@@ -285,13 +289,14 @@ export async function exportExpensesExcel(expenses: Expense[]) {
       'Card Owner': expense.cardOwner ?? '',
       Amount: toExportNumber(expense.amount),
       Currency: expense.currency ?? 'USD',
-      Documents: await formatDocumentsForExport(expense.documents),
+      Documents: documents.text,
     })
   }
 
   const timestamp = new Date().toISOString().slice(0, 10)
   writeExcelFile('Expenses', EXPENSE_HEADERS, rows, `expenses-${timestamp}.xlsx`, {
     moneyHeaders: ['Amount'],
+    columnHyperlinks: { Documents: documentLinks },
   })
 }
 

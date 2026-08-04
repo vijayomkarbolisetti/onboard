@@ -679,3 +679,94 @@ export function downloadInvoiceModalExcel(input: {
   const safeTitle = input.title.replace(/[^\w\s-]+/g, '').trim().replace(/\s+/g, '-').toLowerCase()
   XLSX.writeFile(workbook, `${safeTitle || 'invoice-details'}-${stamp}.xlsx`)
 }
+
+export function downloadExpenseMonthToolsExcel(input: {
+  monthLabel: string
+  displayCurrency: string
+  tools: Array<{ name: string; count: number; amount: number }>
+}) {
+  const ws: XLSX.WorkSheet = {}
+  const colCount = 3
+  const totalAmount = input.tools.reduce((s, t) => s + t.amount, 0)
+  const totalRecords = input.tools.reduce((s, t) => s + t.count, 0)
+  const title = `Tools used in ${input.monthLabel}`
+  const subtitle = `${input.tools.length} different tools · ${totalRecords} records · ${input.displayCurrency}`
+
+  for (let c = 0; c < colCount; c++) {
+    setCell(ws, 0, c, c === 0 ? title : '', titleStyle)
+    setCell(ws, 1, c, c === 0 ? subtitle : '', subtitleStyle)
+  }
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: colCount - 1 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: colCount - 1 } },
+  ]
+
+  setCell(ws, 3, 0, 'Summary', sectionStyle)
+  setCell(ws, 3, 1, '', sectionStyle)
+  setCell(ws, 3, 2, '', sectionStyle)
+
+  setCell(ws, 4, 0, 'Metric', headerStyle)
+  setCell(ws, 4, 1, 'Value', headerStyle)
+  setCell(ws, 4, 2, '', headerStyle)
+
+  const summaryRows: Array<[string, string | number]> = [
+    ['Different tools', input.tools.length],
+    ['Total records', totalRecords],
+    [`Total amount (${input.displayCurrency})`, Number(totalAmount.toFixed(2))],
+  ]
+  summaryRows.forEach(([label, value], index) => {
+    const row = 5 + index
+    const alt = index % 2 === 1
+    const fill = alt
+      ? { patternType: 'solid' as const, fgColor: { rgb: COLORS.altRow } }
+      : { patternType: 'solid' as const, fgColor: { rgb: 'FFFFFF' } }
+    setCell(ws, row, 0, label, { ...labelStyle, fill })
+    if (typeof value === 'number' && index === 2) {
+      setCell(ws, row, 1, value, { ...valueStyle, fill })
+    } else if (typeof value === 'number') {
+      setCell(ws, row, 1, value, { ...countStyle, fill })
+    } else {
+      setCell(ws, row, 1, value, { ...textStyle, fill })
+    }
+    setCell(ws, row, 2, '', { ...textStyle, fill })
+  })
+
+  setCell(ws, 9, 0, 'Tools', sectionStyle)
+  setCell(ws, 9, 1, '', sectionStyle)
+  setCell(ws, 9, 2, '', sectionStyle)
+
+  setCell(ws, 10, 0, 'Tool', headerStyle)
+  setCell(ws, 10, 1, 'Records', headerStyle)
+  setCell(ws, 10, 2, `Amount (${input.displayCurrency})`, headerStyle)
+
+  if (input.tools.length === 0) {
+    setCell(ws, 11, 0, 'No tools found for this month.', mutedStyle)
+    setCell(ws, 11, 1, '', mutedStyle)
+    setCell(ws, 11, 2, '', mutedStyle)
+  } else {
+    input.tools.forEach((tool, index) => {
+      const r = 11 + index
+      const alt = index % 2 === 1
+      const fill = alt
+        ? { patternType: 'solid' as const, fgColor: { rgb: COLORS.altRow } }
+        : { patternType: 'solid' as const, fgColor: { rgb: 'FFFFFF' } }
+      setCell(ws, r, 0, tool.name || '—', { ...textStyle, fill })
+      setCell(ws, r, 1, tool.count, { ...countStyle, fill })
+      setCell(ws, r, 2, Number(tool.amount.toFixed(2)), { ...valueStyle, fill })
+    })
+  }
+
+  const lastRow = input.tools.length === 0 ? 11 : 10 + input.tools.length
+  ws['!ref'] = XLSX.utils.encode_range({
+    s: { r: 0, c: 0 },
+    e: { r: lastRow, c: colCount - 1 },
+  })
+  ws['!rows'] = [{ hpt: 28 }, { hpt: 20 }]
+  ws['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 18 }]
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, ws, 'Tools by month')
+  const stamp = format(new Date(), 'yyyy-MM-dd')
+  const safeMonth = input.monthLabel.replace(/[^\w\s-]+/g, '').trim().replace(/\s+/g, '-').toLowerCase()
+  XLSX.writeFile(workbook, `tools-used-${safeMonth || 'month'}-${stamp}.xlsx`)
+}
