@@ -23,7 +23,7 @@ import type { TabId } from '@/types'
 const tabMeta: Record<TabId, { title: string; subtitle: string }> = {
   dashboard: {
     title: 'Dashboard',
-    subtitle: 'Clients, invoices, amounts, and 6-month forecast',
+    subtitle: 'Clients, invoices, amounts, and rolling forecast window',
   },
   onboarding: {
     title: 'Client Tracker',
@@ -83,46 +83,6 @@ export default function TrackerPage() {
       ]),
     [onboardingInvoicesState.records, onboardingState.onboardings],
   )
-
-  useEffect(() => {
-    if (!roleLoaded) return
-
-    if (activeTab === 'dashboard') {
-      if (canOnboarding) void onboardingState.reload()
-      if (canOnboardingInvoices) void onboardingInvoicesState.reload()
-      if (canPaidInvoices) void paidInvoicesState.reload()
-      if (canOpenInvoices) void openInvoicesState.reload()
-      if (canExpenses) void expensesState.reload()
-    }
-    if (activeTab === 'onboarding' && canOnboarding) {
-      void onboardingState.reload()
-    }
-    if (activeTab === 'onboarding-invoices' && canOnboardingInvoices) {
-      void onboardingInvoicesState.reload()
-    }
-    if (activeTab === 'paid-invoices' && canPaidInvoices) {
-      void paidInvoicesState.reload()
-    }
-    if (activeTab === 'open-invoices' && canOpenInvoices) {
-      void openInvoicesState.reload()
-    }
-    if (activeTab === 'expenses' && canExpenses) {
-      void expensesState.reload()
-    }
-  }, [
-    roleLoaded,
-    activeTab,
-    canOnboarding,
-    canOnboardingInvoices,
-    canPaidInvoices,
-    canOpenInvoices,
-    canExpenses,
-    onboardingState.reload,
-    onboardingInvoicesState.reload,
-    paidInvoicesState.reload,
-    openInvoicesState.reload,
-    expensesState.reload,
-  ])
 
   const dashboardLoading =
     !roleLoaded ||
@@ -245,7 +205,12 @@ export default function TrackerPage() {
   return (
     <InviteTicketRedirect>
       <SingleOrgActivator>
-        <Layout activeTab={activeTab} onTabChange={setActiveTab}>
+        <Layout
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          canViewTab={canView}
+          permissionsLoaded={roleLoaded}
+        >
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight text-theme-fg">{meta.title}</h1>
           <p className="mt-2 text-theme-muted">{meta.subtitle}</p>

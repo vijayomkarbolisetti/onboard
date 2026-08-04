@@ -1,20 +1,17 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Legend,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
-import { Download, Info, LayoutDashboard } from 'lucide-react'
+import { Download, LayoutDashboard } from 'lucide-react'
 import { WyraSelect } from '@/components/CompanyNameSelect'
 import { useTheme } from '@/components/ThemeProvider'
 import {
@@ -30,15 +27,34 @@ import {
   forecastNextMonths,
   invoiceStatsByMonth,
   invoiceTotals,
+  matchesYearMonth,
   MONTH_OPTIONS,
   amountForAnalytics,
+  toMonthKey,
   type AnalyticsMoneyOpts,
 } from '@/lib/dashboardAnalytics'
 import { formatMoney, shortMoneyAxis } from '@/lib/currency'
 import { formatFxBanner, FX_DISPLAY_CURRENCIES } from '@/lib/fx'
-import { buildAndDownloadDashboardReport } from '@/lib/dashboardExcel'
+import { buildAndDownloadDashboardReport, downloadInvoiceModalExcel } from '@/lib/dashboardExcel'
 import { useFxRates } from '@/hooks/useFxRates'
-import { cn } from '@/lib/utils'
+import { formatCompanyNames, resolveInvoiceNumber } from '@/utils/format'
+import {
+  ChartCard,
+  ClientDetailsModal,
+  EmptyChart,
+  ExpenseToolDetailsModal,
+  ExpenseMonthToolsModal,
+  FxRateInfo,
+  InvoiceSummaryModal,
+  MonthYearFilters,
+  StatCard,
+  type ClientDetailRow,
+  type ExpenseToolRecordRow,
+  type ExpenseMonthToolRow,
+  type InvoiceDetailRow,
+} from '@/components/onboarding/dashboard/DashboardComponents'
+import { ExpensesSection, ForecastSection } from '@/components/onboarding/dashboard/DashboardSections'
+import { ClientsSection } from '@/components/onboarding/dashboard/DashboardClientSection'
 import type {
   Expense,
   Onboarding,
@@ -46,8 +62,6 @@ import type {
   OpenInvoice,
   PaidInvoice,
 } from '@/types'
-
-const PIE_COLORS = ['#1fcc9a', '#00a0f0', '#a5c626', '#7c73b5', '#241f5b', '#f59e0b', '#ef4444']
 
 interface DashboardProps {
   onboardings: Onboarding[]
@@ -59,205 +73,14 @@ interface DashboardProps {
   error?: string | null
 }
 
-function StatCard({
-  label,
-  count,
-  amount,
-  accent,
-  currency,
-  amountLabel = 'Amount',
-}: {
-  label: string
-  count: number
-  amount: number
-  accent: string
-  currency: string
-  amountLabel?: string
-}) {
-  return (
-    <div className="glass-card rounded-2xl border border-theme p-5">
-      <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-theme-muted">
-            {label}
-          </p>
-          <p className={cn('mt-2 text-3xl font-bold tracking-tight', accent)}>{count}</p>
-        </div>
-        <div className="sm:border-l sm:border-theme sm:pl-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-theme-muted">
-            {amountLabel}
-          </p>
-          <p className="mt-2 text-xl font-semibold tracking-tight text-theme-fg">
-            {formatMoney(amount, currency)}
-          </p>
-        </div>
-      </div>
-    </div>
-  )
+type InvoiceModalMode = 'raised' | 'paid' | 'pending'
+
+function normalizeClientStatus(value: string | null | undefined): string {
+  return (value ?? 'unknown').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-function ChartCard({
-  title,
-  subtitle,
-  children,
-  actions,
-}: {
-  title: string
-  subtitle?: string
-  children: React.ReactNode
-  actions?: React.ReactNode
-}) {
-  return (
-    <div className="glass-card rounded-2xl border border-theme p-5">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-theme-fg">{title}</h3>
-          {subtitle ? <p className="mt-1 text-sm text-theme-muted">{subtitle}</p> : null}
-        </div>
-        {actions}
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function MonthYearFilters({
-  month,
-  year,
-  years,
-  onMonth,
-  onYear,
-}: {
-  month: string
-  year: string
-  years: string[]
-  onMonth: (v: string) => void
-  onYear: (v: string) => void
-}) {
-  return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="min-w-[140px]">
-        <label className="mb-1 block text-xs font-medium text-theme-muted">Month</label>
-        <WyraSelect
-          value={month}
-          onChange={onMonth}
-          placeholder="All months"
-          options={MONTH_OPTIONS}
-        />
-      </div>
-      <div className="min-w-[110px]">
-        <label className="mb-1 block text-xs font-medium text-theme-muted">Year</label>
-        <WyraSelect
-          value={year}
-          onChange={onYear}
-          placeholder="All years"
-          options={years.map((y) => ({ value: y, label: y }))}
-        />
-      </div>
-    </div>
-  )
-}
-
-function FxRateInfo({
-  rateLabel,
-  date,
-  source,
-  loading,
-  warning,
-  displayCurrency,
-}: {
-  rateLabel: string | null
-  date?: string
-  source?: string
-  loading: boolean
-  warning: string | null
-  displayCurrency: string
-}) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    function onPointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
-  const rateLines = (rateLabel ?? '')
-    .split(' · ')
-    .map((part) => part.trim())
-    .filter(Boolean)
-
-  return (
-    <div
-      ref={rootRef}
-      className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <button
-        type="button"
-        aria-label="Currency conversion info"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          'inline-flex h-9 w-9 items-center justify-center rounded-xl border border-theme text-theme-muted transition',
-          'hover:border-aqua/40 hover:bg-aqua/10 hover:text-aqua',
-          open && 'border-aqua/40 bg-aqua/10 text-aqua',
-        )}
-      >
-        <Info size={16} />
-      </button>
-
-      {open ? (
-        <div
-          role="tooltip"
-          className="absolute left-0 top-[calc(100%+8px)] z-40 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-theme bg-theme-surface p-4 shadow-lg sm:left-auto sm:right-0"
-        >
-          <p className="text-sm font-semibold text-theme-fg">Currency conversion</p>
-          <p className="mt-1 text-xs leading-relaxed text-theme-muted">
-            All amounts (USD, INR, EUR, …) convert to{' '}
-            <span className="font-semibold text-theme-fg">{displayCurrency}</span> using
-            today&apos;s FX rates.
-          </p>
-
-          <div className="mt-3 rounded-xl border border-theme bg-theme-elevated/50 px-3 py-2.5">
-            {loading && !rateLabel ? (
-              <p className="text-xs text-theme-muted">Loading FX rates…</p>
-            ) : rateLines.length > 0 ? (
-              <ul className="space-y-1.5">
-                {rateLines.map((line) => (
-                  <li key={line} className="text-xs font-medium text-theme-body">
-                    {line}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-theme-muted">FX rates unavailable.</p>
-            )}
-            {(date || source) && (
-              <p className="mt-2 text-[11px] text-theme-muted">
-                {date ?? '—'}
-                {source ? ` · ${source}` : ''}
-              </p>
-            )}
-            {warning ? <p className="mt-2 text-[11px] text-amber-500">{warning}</p> : null}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  )
+function normalizeToolName(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 export function Dashboard({
@@ -281,6 +104,16 @@ export function Dashboard({
   const [expenseYear, setExpenseYear] = useState('')
   /** Display currency — USD/INR/EUR/… ; all uploaded currencies convert into this. */
   const [currencyFilter, setCurrencyFilter] = useState('USD')
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
+  const [invoiceModalMode, setInvoiceModalMode] = useState<InvoiceModalMode>('raised')
+  const [invoiceModalMonthKey, setInvoiceModalMonthKey] = useState<string | null>(null)
+  const [clientDetailOpen, setClientDetailOpen] = useState(false)
+  const [selectedClientMonthKey, setSelectedClientMonthKey] = useState<string | null>(null)
+  const [selectedClientStatus, setSelectedClientStatus] = useState<string | null>(null)
+  const [selectedExpenseTool, setSelectedExpenseTool] = useState<string | null>(null)
+  const [expenseToolMonthModalOpen, setExpenseToolMonthModalOpen] = useState(false)
+  const [expenseMonthToolsModalOpen, setExpenseMonthToolsModalOpen] = useState(false)
+  const [selectedExpenseToolMonthKey, setSelectedExpenseToolMonthKey] = useState<string | null>(null)
 
   const chartFg = isLight ? '#241f5b' : '#cbd5e1'
   const chartMuted = isLight ? '#5c5a78' : '#94a3b8'
@@ -358,6 +191,46 @@ export function Dashboard({
     [onboardings, clientMonth, clientYear, moneyOpts],
   )
 
+  const openClientDetail = (monthKey: string | null, status: string | null = null) => {
+    setSelectedClientMonthKey(monthKey)
+    setSelectedClientStatus(status)
+    setClientDetailOpen(true)
+  }
+
+  const selectedClientMonthLabel = useMemo(() => {
+    if (!selectedClientMonthKey) return 'All selected months'
+    return clientMonths.find((row) => row.key === selectedClientMonthKey)?.label ?? selectedClientMonthKey
+  }, [selectedClientMonthKey, clientMonths])
+
+  const clientDetailFilterLabel = useMemo(() => {
+    const monthPart = selectedClientMonthLabel
+    const statusPart = selectedClientStatus ? ` · ${selectedClientStatus}` : ''
+    return `${monthPart}${statusPart}`
+  }, [selectedClientMonthLabel, selectedClientStatus])
+
+  const clientDetailRows = useMemo<ClientDetailRow[]>(() => {
+    const statusKey = selectedClientStatus ? normalizeClientStatus(selectedClientStatus) : null
+    const rows = filteredClients
+      .filter((row) => {
+        if (!selectedClientMonthKey) return true
+        return toMonthKey(row.onboardingDate) === selectedClientMonthKey
+      })
+      .filter((row) => {
+        if (!statusKey) return true
+        return normalizeClientStatus(row.status) === statusKey
+      })
+      .map((row) => ({
+        id: row.id,
+        organization: row.organization || '—',
+        status: (row.status || 'Unknown').trim() || 'Unknown',
+        onboardingDate: row.onboardingDate,
+        committedAmountDisplay: Number(
+          amountForAnalytics(row.committedAmount, row.currency, row.committedAmount, moneyOpts).toFixed(2),
+        ),
+      }))
+    return rows.sort((a, b) => (a.onboardingDate > b.onboardingDate ? -1 : 1))
+  }, [filteredClients, selectedClientMonthKey, selectedClientStatus, moneyOpts])
+
   const invoiceSummary = useMemo(
     () => invoiceTotals(paidInvoices, openInvoices, invoiceMonth, invoiceYear, moneyOpts),
     [paidInvoices, openInvoices, invoiceMonth, invoiceYear, moneyOpts],
@@ -369,7 +242,7 @@ export function Dashboard({
   )
 
   const forecast = useMemo(
-    () => forecastNextMonths(onboardingInvoices, 6, new Date(), moneyOpts),
+    () => forecastNextMonths(onboardingInvoices, 3, new Date(), moneyOpts),
     [onboardingInvoices, moneyOpts],
   )
 
@@ -387,6 +260,101 @@ export function Dashboard({
     () => expensesByTool(expenses, expenseMonth, expenseYear, moneyOpts),
     [expenses, expenseMonth, expenseYear, moneyOpts],
   )
+
+  const handleExpenseToolSelect = (toolName: string | null) => {
+    if (!toolName) return
+    setSelectedExpenseTool((prev) =>
+      prev && normalizeToolName(prev) === normalizeToolName(toolName) ? null : toolName,
+    )
+    setSelectedExpenseToolMonthKey(null)
+    setExpenseToolMonthModalOpen(false)
+    setExpenseMonthToolsModalOpen(false)
+  }
+
+  const expenseMonthsForChart = useMemo(() => {
+    if (!selectedExpenseTool) return expenseMonths
+    const toolKey = normalizeToolName(selectedExpenseTool)
+    const byMonth = new Map<string, { key: string; label: string; count: number; amount: number }>()
+    for (const row of expenses) {
+      if (!matchesYearMonth(row.invoiceDate, expenseMonth, expenseYear)) continue
+      if (normalizeToolName(row.toolName) !== toolKey) continue
+      const key = toMonthKey(row.invoiceDate)
+      if (!key) continue
+      const prev = byMonth.get(key) ?? {
+        key,
+        label: new Date(`${key}-01`).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        count: 0,
+        amount: 0,
+      }
+      prev.count += 1
+      prev.amount += amountForAnalytics(row.amount, row.currency, row.amount, moneyOpts)
+      byMonth.set(key, prev)
+    }
+    return [...byMonth.values()].sort((a, b) => a.key.localeCompare(b.key))
+  }, [selectedExpenseTool, expenseMonths, expenses, expenseMonth, expenseYear, moneyOpts])
+
+  const selectedExpenseToolRecords = useMemo<ExpenseToolRecordRow[]>(() => {
+    if (!selectedExpenseTool) return []
+    const toolKey = normalizeToolName(selectedExpenseTool)
+    return expenses
+      .filter((row) => matchesYearMonth(row.invoiceDate, expenseMonth, expenseYear))
+      .filter((row) => normalizeToolName(row.toolName) === toolKey)
+      .filter((row) =>
+        selectedExpenseToolMonthKey ? toMonthKey(row.invoiceDate) === selectedExpenseToolMonthKey : true,
+      )
+      .map((row) => ({
+        id: row.id,
+        invoiceDate: row.invoiceDate,
+        cardUsed: row.cardUsed || '—',
+        cardOwner: row.cardOwner || '—',
+        displayAmount: Number(
+          amountForAnalytics(row.amount, row.currency, row.amount, moneyOpts).toFixed(2),
+        ),
+      }))
+      .sort((a, b) => (a.invoiceDate > b.invoiceDate ? -1 : 1))
+  }, [
+    selectedExpenseTool,
+    selectedExpenseToolMonthKey,
+    expenses,
+    expenseMonth,
+    expenseYear,
+    moneyOpts,
+  ])
+
+  const selectedExpenseToolMonthRows = useMemo(
+    () =>
+      selectedExpenseToolMonthKey
+        ? expenseMonthsForChart.filter((m) => m.key === selectedExpenseToolMonthKey)
+        : expenseMonthsForChart,
+    [expenseMonthsForChart, selectedExpenseToolMonthKey],
+  )
+
+  const selectedExpenseToolMonthLabel = useMemo(() => {
+    if (!selectedExpenseToolMonthKey) return 'All months'
+    return (
+      expenseMonthsForChart.find((m) => m.key === selectedExpenseToolMonthKey)?.label ??
+      selectedExpenseToolMonthKey
+    )
+  }, [expenseMonthsForChart, selectedExpenseToolMonthKey])
+
+  const selectedMonthTools = useMemo<ExpenseMonthToolRow[]>(() => {
+    if (!selectedExpenseToolMonthKey) return []
+    const byTool = new Map<string, ExpenseMonthToolRow>()
+    for (const row of expenses) {
+      if (!matchesYearMonth(row.invoiceDate, expenseMonth, expenseYear)) continue
+      if (toMonthKey(row.invoiceDate) !== selectedExpenseToolMonthKey) continue
+      const key = normalizeToolName(row.toolName)
+      if (!key) continue
+      const name = (row.toolName || 'Unknown').trim() || 'Unknown'
+      const prev = byTool.get(key) ?? { name, count: 0, amount: 0 }
+      prev.count += 1
+      prev.amount += amountForAnalytics(row.amount, row.currency, row.amount, moneyOpts)
+      byTool.set(key, prev)
+    }
+    return [...byTool.values()]
+      .map((t) => ({ ...t, amount: Number(t.amount.toFixed(2)) }))
+      .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name))
+  }, [selectedExpenseToolMonthKey, expenses, expenseMonth, expenseYear, moneyOpts])
 
   const forecastTotals = useMemo(
     () =>
@@ -440,6 +408,120 @@ export function Dashboard({
     })
   }
 
+  const invoicePeriodLabel = useMemo(() => {
+    const monthLabel =
+      MONTH_OPTIONS.find((m) => m.value === invoiceMonth)?.label ?? 'All months'
+    const yearLabel = invoiceYear || 'All years'
+    return `${monthLabel} · ${yearLabel} · ${displayCurrency}`
+  }, [invoiceMonth, invoiceYear, displayCurrency])
+
+  const openInvoiceModal = (mode: InvoiceModalMode, monthKey: string | null = null) => {
+    setInvoiceModalMode(mode)
+    setInvoiceModalMonthKey(monthKey)
+    setInvoiceModalOpen(true)
+  }
+
+  const invoiceModalPaid = useMemo(() => {
+    const periodFiltered = paidInvoices.filter((inv) =>
+      matchesYearMonth(inv.invoiceDate, invoiceMonth, invoiceYear),
+    )
+    if (!invoiceModalMonthKey) return periodFiltered
+    return periodFiltered.filter((inv) => toMonthKey(inv.invoiceDate) === invoiceModalMonthKey)
+  }, [paidInvoices, invoiceMonth, invoiceYear, invoiceModalMonthKey])
+
+  const invoiceModalPending = useMemo(() => {
+    const periodFiltered = openInvoices.filter((inv) =>
+      matchesYearMonth(inv.invoiceDate, invoiceMonth, invoiceYear),
+    )
+    if (!invoiceModalMonthKey) return periodFiltered
+    return periodFiltered.filter((inv) => toMonthKey(inv.invoiceDate) === invoiceModalMonthKey)
+  }, [openInvoices, invoiceMonth, invoiceYear, invoiceModalMonthKey])
+
+  const modalPaidRows = useMemo<InvoiceDetailRow[]>(
+    () =>
+      invoiceModalPaid.map((inv) => ({
+        type: 'Paid',
+        invoiceDate: inv.invoiceDate,
+        customerName: inv.customerName ?? '',
+        companyName: formatCompanyNames(inv.companyName),
+        invoiceNumber: resolveInvoiceNumber(inv as unknown as Record<string, unknown>),
+        invoiceAmountRaw: inv.invoiceAmount,
+        currency: inv.currency ?? 'USD',
+        displayAmount: Number(
+          amountForAnalytics(inv.invoiceAmount, inv.currency, inv.invoiceAmount, moneyOpts).toFixed(
+            2,
+          ),
+        ),
+        status: inv.status ?? '',
+      })),
+    [invoiceModalPaid, moneyOpts],
+  )
+
+  const modalPendingRows = useMemo<InvoiceDetailRow[]>(
+    () =>
+      invoiceModalPending.map((inv) => ({
+        type: 'Pending',
+        invoiceDate: inv.invoiceDate,
+        customerName: inv.customerName ?? '',
+        companyName: formatCompanyNames(inv.companyName),
+        invoiceNumber: resolveInvoiceNumber(inv as unknown as Record<string, unknown>),
+        invoiceAmountRaw: inv.invoiceAmount,
+        currency: inv.currency ?? 'USD',
+        displayAmount: Number(
+          amountForAnalytics(inv.invoiceAmount, inv.currency, inv.invoiceAmount, moneyOpts).toFixed(
+            2,
+          ),
+        ),
+        status: inv.status ?? '',
+      })),
+    [invoiceModalPending, moneyOpts],
+  )
+
+  const invoiceModalRows = useMemo(() => {
+    if (invoiceModalMode === 'paid') return modalPaidRows
+    if (invoiceModalMode === 'pending') return modalPendingRows
+    return [...modalPaidRows, ...modalPendingRows].sort((a, b) =>
+      a.invoiceDate > b.invoiceDate ? -1 : 1,
+    )
+  }, [invoiceModalMode, modalPaidRows, modalPendingRows])
+
+  const invoiceModalSummary = useMemo(() => {
+    const paidRows = invoiceModalRows.filter((row) => row.type === 'Paid')
+    const pendingRows = invoiceModalRows.filter((row) => row.type === 'Pending')
+    const paidAmount = paidRows.reduce((s, row) => s + row.displayAmount, 0)
+    const pendingAmount = pendingRows.reduce((s, row) => s + row.displayAmount, 0)
+    return {
+      raisedCount: invoiceModalRows.length,
+      raisedAmount: paidAmount + pendingAmount,
+      paidCount: paidRows.length,
+      paidAmount,
+      pendingCount: pendingRows.length,
+      pendingAmount,
+    }
+  }, [invoiceModalRows])
+
+  const invoiceModalTitle = useMemo(() => {
+    if (invoiceModalMode === 'paid') return 'Paid invoices details'
+    if (invoiceModalMode === 'pending') return 'Pending invoices details'
+    return 'Total invoices details'
+  }, [invoiceModalMode])
+
+  const invoiceModalPeriodLabel = useMemo(() => {
+    if (!invoiceModalMonthKey) return invoicePeriodLabel
+    const month = invoiceMonths.find((row) => row.key === invoiceModalMonthKey)?.label ?? invoiceModalMonthKey
+    return `${month} · ${displayCurrency}`
+  }, [invoiceModalMonthKey, invoicePeriodLabel, invoiceMonths, displayCurrency])
+
+  const handleInvoiceExcelDownload = () => {
+    downloadInvoiceModalExcel({
+      title: invoiceModalTitle,
+      periodLabel: invoiceModalPeriodLabel,
+      displayCurrency,
+      summary: invoiceModalSummary,
+      rows: invoiceModalRows,
+    })
+  }
+
   if (loading || (fxLoading && !fxPayload)) {
     return (
       <div className="flex items-center justify-center py-24 text-theme-muted">
@@ -457,6 +539,7 @@ export function Dashboard({
   }
 
   return (
+    <>
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -490,112 +573,23 @@ export function Dashboard({
         </button>
       </div>
 
-      {/* Clients */}
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-theme-fg">Clients</h2>
-            <p className="mt-1 text-sm text-theme-muted">
-              Overall and month-wise onboarding — use filters for a custom month
-            </p>
-          </div>
-          <MonthYearFilters
-            month={clientMonth}
-            year={clientYear}
-            years={clientYears}
-            onMonth={setClientMonth}
-            onYear={setClientYear}
-          />
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <ChartCard
-            title="Overall clients"
-            subtitle="Distribution by status · hover for count and committed amount"
-            actions={
-              <div className="rounded-xl border border-theme bg-theme-elevated/50 px-3 py-2 text-right">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-theme-muted">
-                  Total clients
-                </p>
-                <p className="text-lg font-bold text-aqua">{filteredClients.length}</p>
-                <p className="text-[11px] font-medium text-theme-muted">Committed amount</p>
-                <p className="text-sm font-semibold text-theme-fg">
-                  {formatMoney(committedTotal, displayCurrency)}
-                </p>
-              </div>
-            }
-          >
-            <div className="h-72">
-              {statusSlices.length === 0 ? (
-                <EmptyChart />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusSlices}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={58}
-                      outerRadius={96}
-                      paddingAngle={2}
-                    >
-                      {statusSlices.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(value, name, item) => {
-                        const amount = (item?.payload as { amount?: number })?.amount ?? 0
-                        return [
-                          `${value} clients · ${formatMoney(amount, displayCurrency)}`,
-                          String(name),
-                        ]
-                      }}
-                    />
-                    <Legend wrapperStyle={{ color: chartMuted }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </ChartCard>
-
-          <ChartCard
-            title="Month-wise clients"
-            subtitle="New clients by onboarding month (bar = count)"
-          >
-            <div className="h-72">
-              {clientMonths.length === 0 ? (
-                <EmptyChart />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={clientMonths} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid stroke={gridStroke} strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fill: chartMuted, fontSize: 11 }} />
-                    <YAxis allowDecimals={false} tick={{ fill: chartMuted, fontSize: 11 }} />
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(value, name, item) => {
-                        if (name === 'count') {
-                          const amount = (item?.payload as { amount?: number })?.amount ?? 0
-                          return [
-                            `${value} · ${formatMoney(amount, displayCurrency)}`,
-                            'Clients',
-                          ]
-                        }
-                        return [value, String(name)]
-                      }}
-                    />
-                    <Bar dataKey="count" name="count" fill="#1fcc9a" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </ChartCard>
-        </div>
-      </section>
+      <ClientsSection
+        clientMonth={clientMonth}
+        clientYear={clientYear}
+        clientYears={clientYears}
+        onClientMonth={setClientMonth}
+        onClientYear={setClientYear}
+        filteredClientCount={filteredClients.length}
+        committedTotal={committedTotal}
+        statusSlices={statusSlices}
+        clientMonths={clientMonths}
+        displayCurrency={displayCurrency}
+        chartMuted={chartMuted}
+        gridStroke={gridStroke}
+        tooltipStyle={tooltipStyle}
+        onStatusClick={(status) => openClientDetail(null, status)}
+        onMonthClick={(monthKey) => openClientDetail(monthKey)}
+      />
 
       {/* Invoices */}
       <section className="space-y-4">
@@ -606,13 +600,22 @@ export function Dashboard({
               Raised = paid + pending · separate month/year filter
             </p>
           </div>
-          <MonthYearFilters
-            month={invoiceMonth}
-            year={invoiceYear}
-            years={invoiceYears}
-            onMonth={setInvoiceMonth}
-            onYear={setInvoiceYear}
-          />
+          <div className="flex flex-wrap items-end gap-3">
+            <MonthYearFilters
+              month={invoiceMonth}
+              year={invoiceYear}
+              years={invoiceYears}
+              onMonth={setInvoiceMonth}
+              onYear={setInvoiceYear}
+            />
+            <button
+              type="button"
+              onClick={() => openInvoiceModal('raised')}
+              className="btn-wyra mb-0.5 inline-flex items-center gap-2"
+            >
+              View summary
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
@@ -622,6 +625,7 @@ export function Dashboard({
             amount={invoiceSummary.raisedAmount}
             accent="text-wyra-blue"
             currency={displayCurrency}
+            onClick={() => openInvoiceModal('raised')}
           />
           <StatCard
             label="Paid invoices"
@@ -629,6 +633,7 @@ export function Dashboard({
             amount={invoiceSummary.paidAmount}
             accent="text-aqua"
             currency={displayCurrency}
+            onClick={() => openInvoiceModal('paid')}
           />
           <StatCard
             label="Pending invoices"
@@ -636,6 +641,7 @@ export function Dashboard({
             amount={invoiceSummary.pendingAmount}
             accent="text-amber-400"
             currency={displayCurrency}
+            onClick={() => openInvoiceModal('pending')}
           />
         </div>
 
@@ -663,13 +669,44 @@ export function Dashboard({
                     ]}
                   />
                   <Legend wrapperStyle={{ color: chartMuted }} />
-                  <Bar dataKey="raisedAmount" name="Raised" fill="#00a0f0" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="paidAmount" name="Paid" fill="#1fcc9a" radius={[4, 4, 0, 0]} />
+                  <Bar
+                    dataKey="raisedAmount"
+                    name="Raised"
+                    fill="#00a0f0"
+                    radius={[4, 4, 0, 0]}
+                    isAnimationActive={false}
+                    onClick={(row) =>
+                      openInvoiceModal(
+                        'raised',
+                        (row as { key?: string } | undefined)?.key ?? null,
+                      )
+                    }
+                  />
+                  <Bar
+                    dataKey="paidAmount"
+                    name="Paid"
+                    fill="#1fcc9a"
+                    radius={[4, 4, 0, 0]}
+                    isAnimationActive={false}
+                    onClick={(row) =>
+                      openInvoiceModal(
+                        'paid',
+                        (row as { key?: string } | undefined)?.key ?? null,
+                      )
+                    }
+                  />
                   <Bar
                     dataKey="pendingAmount"
                     name="Pending"
                     fill="#f59e0b"
                     radius={[4, 4, 0, 0]}
+                    isAnimationActive={false}
+                    onClick={(row) =>
+                      openInvoiceModal(
+                        'pending',
+                        (row as { key?: string } | undefined)?.key ?? null,
+                      )
+                    }
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -678,203 +715,87 @@ export function Dashboard({
         </ChartCard>
       </section>
 
-      {/* Expenses */}
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-theme-fg">Expenses</h2>
-            <p className="mt-1 text-sm text-theme-muted">
-              Tool spend from Expenses tab · any currency converts to {displayCurrency}
-            </p>
-          </div>
-          <MonthYearFilters
-            month={expenseMonth}
-            year={expenseYear}
-            years={expenseYears}
-            onMonth={setExpenseMonth}
-            onYear={setExpenseYear}
-          />
-        </div>
+      <ExpensesSection
+        displayCurrency={displayCurrency}
+        chartMuted={chartMuted}
+        gridStroke={gridStroke}
+        tooltipStyle={tooltipStyle}
+        expenseMonth={expenseMonth}
+        expenseYear={expenseYear}
+        expenseYears={expenseYears}
+        onExpenseMonth={setExpenseMonth}
+        onExpenseYear={setExpenseYear}
+        expenseSummary={expenseSummary}
+        expenseTools={expenseTools}
+        expenseMonths={expenseMonthsForChart}
+        selectedToolName={selectedExpenseTool}
+        onToolClick={handleExpenseToolSelect}
+        onToolReset={() => {
+          setSelectedExpenseTool(null)
+          setSelectedExpenseToolMonthKey(null)
+          setExpenseToolMonthModalOpen(false)
+          setExpenseMonthToolsModalOpen(false)
+        }}
+        onMonthBarClick={(monthKey) => {
+          if (!monthKey) return
+          setSelectedExpenseToolMonthKey(monthKey)
+          if (selectedExpenseTool) {
+            setExpenseMonthToolsModalOpen(false)
+            setExpenseToolMonthModalOpen(true)
+          } else {
+            setExpenseToolMonthModalOpen(false)
+            setExpenseMonthToolsModalOpen(true)
+          }
+        }}
+      />
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <StatCard
-            label="Total expenses"
-            count={expenseSummary.count}
-            amount={expenseSummary.amount}
-            accent="text-aqua"
-            currency={displayCurrency}
-          />
-          <StatCard
-            label="Tools with spend"
-            count={expenseTools.length}
-            amount={expenseTools.reduce((s, t) => s + t.amount, 0)}
-            accent="text-wyra-blue"
-            currency={displayCurrency}
-          />
-          <StatCard
-            label="Months with expenses"
-            count={expenseMonths.length}
-            amount={expenseMonths.reduce((s, m) => s + m.amount, 0)}
-            accent="text-lime"
-            currency={displayCurrency}
-          />
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <ChartCard
-            title="Expenses by tool"
-            subtitle="Top tools by amount (count in legend)"
-          >
-            <div className="h-72">
-              {expenseTools.length === 0 ? (
-                <EmptyChart />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={expenseTools}
-                      dataKey="amount"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={58}
-                      outerRadius={96}
-                      paddingAngle={2}
-                    >
-                      {expenseTools.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(value, name, item) => {
-                        const count = (item?.payload as { value?: number })?.value ?? 0
-                        return [
-                          `${formatMoney(Number(value) || 0, displayCurrency)} · ${count} rows`,
-                          String(name),
-                        ]
-                      }}
-                    />
-                    <Legend wrapperStyle={{ color: chartMuted }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </ChartCard>
-
-          <ChartCard
-            title="Expenses by month"
-            subtitle={`Spend amounts (${displayCurrency})`}
-          >
-            <div className="h-72">
-              {expenseMonths.length === 0 ? (
-                <EmptyChart />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={expenseMonths} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid stroke={gridStroke} strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fill: chartMuted, fontSize: 11 }} />
-                    <YAxis
-                      tick={{ fill: chartMuted, fontSize: 11 }}
-                      tickFormatter={(v) => shortMoneyAxis(Number(v) || 0, displayCurrency)}
-                    />
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(value, _name, item) => {
-                        const count = (item?.payload as { count?: number })?.count ?? 0
-                        return [
-                          `${formatMoney(Number(value) || 0, displayCurrency)} · ${count} rows`,
-                          'Spend',
-                        ]
-                      }}
-                    />
-                    <Bar dataKey="amount" name="amount" fill="#7c73b5" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </ChartCard>
-        </div>
-      </section>
-
-      {/* Forecast */}
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-xl font-semibold text-theme-fg">6-month forecast</h2>
-          <p className="mt-1 text-sm text-theme-muted">
-            Projected from Onboarding &amp; Invoices cycles (invoice amount × cycle). Paid vs
-            pending split uses each client&apos;s historical paid ratio. Filtered by{' '}
-            {displayCurrency}.
-          </p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard
-            label="Forecast raised (6 mo)"
-            count={forecastTotals.raisedCount}
-            amount={forecastTotals.raisedAmount}
-            accent="text-wyra-blue"
-            currency={displayCurrency}
-          />
-          <StatCard
-            label="Forecast paid (6 mo)"
-            count={forecastTotals.paidCount}
-            amount={forecastTotals.paidAmount}
-            accent="text-aqua"
-            currency={displayCurrency}
-          />
-          <StatCard
-            label="Forecast pending (6 mo)"
-            count={forecastTotals.pendingCount}
-            amount={forecastTotals.pendingAmount}
-            accent="text-amber-400"
-            currency={displayCurrency}
-          />
-        </div>
-
-        <ChartCard title="Future invoices & amounts" subtitle={`Next 6 calendar months · ${displayCurrency}`}>
-          <div className="h-80">
-            {forecast.every((m) => m.raisedAmount === 0) ? (
-              <EmptyChart message="Add invoice amount + cycle on Onboarding & Invoices to project future months." />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={forecast} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid stroke={gridStroke} strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: chartMuted, fontSize: 11 }} />
-                  <YAxis
-                    tick={{ fill: chartMuted, fontSize: 11 }}
-                    tickFormatter={(v) => shortMoneyAxis(Number(v) || 0, displayCurrency)}
-                  />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                    formatter={(value, name) => [
-                      formatMoney(Number(value) || 0, displayCurrency),
-                      String(name),
-                    ]}
-                  />
-                  <Legend wrapperStyle={{ color: chartMuted }} />
-                  <Bar dataKey="raisedAmount" name="Raised" fill="#00a0f0" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="paidAmount" name="Paid" fill="#1fcc9a" radius={[4, 4, 0, 0]} />
-                  <Bar
-                    dataKey="pendingAmount"
-                    name="Pending"
-                    fill="#f59e0b"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </ChartCard>
-      </section>
+      <ForecastSection
+        displayCurrency={displayCurrency}
+        chartMuted={chartMuted}
+        gridStroke={gridStroke}
+        tooltipStyle={tooltipStyle}
+        forecastTotals={forecastTotals}
+        forecast={forecast}
+      />
     </div>
+
+      <ClientDetailsModal
+        open={clientDetailOpen}
+        onClose={() => setClientDetailOpen(false)}
+        filterLabel={clientDetailFilterLabel}
+        displayCurrency={displayCurrency}
+        rows={clientDetailRows}
+      />
+
+      <ExpenseToolDetailsModal
+        open={expenseToolMonthModalOpen}
+        onClose={() => setExpenseToolMonthModalOpen(false)}
+        toolName={selectedExpenseTool ?? 'Tool'}
+        periodLabel={`${selectedExpenseToolMonthLabel} · ${displayCurrency}`}
+        displayCurrency={displayCurrency}
+        monthRows={selectedExpenseToolMonthRows}
+        rows={selectedExpenseToolRecords}
+      />
+
+      <ExpenseMonthToolsModal
+        open={expenseMonthToolsModalOpen}
+        onClose={() => setExpenseMonthToolsModalOpen(false)}
+        monthLabel={selectedExpenseToolMonthLabel}
+        displayCurrency={displayCurrency}
+        tools={selectedMonthTools}
+      />
+
+      <InvoiceSummaryModal
+        open={invoiceModalOpen}
+        onClose={() => setInvoiceModalOpen(false)}
+        displayCurrency={displayCurrency}
+        title={invoiceModalTitle}
+        summary={invoiceModalSummary}
+        periodLabel={invoiceModalPeriodLabel}
+        rows={invoiceModalRows}
+        onDownload={handleInvoiceExcelDownload}
+      />
+    </>
   )
 }
 
-function EmptyChart({ message = 'No data for the selected filters.' }: { message?: string }) {
-  return (
-    <div className="flex h-full items-center justify-center text-sm text-theme-muted">
-      {message}
-    </div>
-  )
-}

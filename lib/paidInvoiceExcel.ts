@@ -1,4 +1,4 @@
-import type { CreatePaidInvoiceInput, PaidInvoice } from '@/types'
+import type { CreateOpenInvoiceInput, CreatePaidInvoiceInput, PaidInvoice } from '@/types'
 import { resolveCurrency } from '@/lib/currency'
 import {
   formatDocumentsForExport,
@@ -11,6 +11,7 @@ import {
   writeExcelFile,
   downloadExcelTemplate,
 } from '@/lib/excelUtils'
+import { extractPdfText, suggestOpenInvoiceFromFile } from '@/lib/openInvoiceExcel'
 import { formatCompanyNames, resolveInvoiceNumber } from '@/utils/format'
 
 export const PAID_INVOICE_HEADERS = [
@@ -140,6 +141,99 @@ export async function parsePaidInvoicesExcel(file: File) {
   })
 
   return { records, importedCount: records.length }
+}
+
+/** Best-effort field suggestions from an uploaded paid-invoice file (Excel, PDF text, or filename). */
+export async function suggestPaidInvoiceFromFile(
+  file: File,
+): Promise<Partial<CreatePaidInvoiceInput>> {
+  const name = file.name.toLowerCase()
+  const isExcel = name.endsWith('.xlsx') || name.endsWith('.xls')
+  const isPdf = name.endsWith('.pdf') || file.type === 'application/pdf'
+
+  if (isExcel) {
+    try {
+      const { records } = await parsePaidInvoicesExcel(file)
+      const first = records[0]
+      if (!first) {
+        const fallback = await suggestOpenInvoiceFromFile(file)
+        return mapOpenSuggestionToPaid(fallback)
+      }
+      const suggestion: Partial<CreatePaidInvoiceInput> = {}
+      if (first.invoiceDate) suggestion.invoiceDate = first.invoiceDate
+      if (first.customerName) suggestion.customerName = first.customerName
+      if (first.companyName) suggestion.companyName = first.companyName
+      if (first.invoiceNumber) suggestion.invoiceNumber = first.invoiceNumber
+      if (first.invoiceAmount) suggestion.invoiceAmount = String(first.invoiceAmount)
+      if (first.currency) suggestion.currency = first.currency
+      if (first.status) suggestion.status = first.status
+      if (first.paymentDate) suggestion.paymentDate = first.paymentDate
+      if (first.paymentMethod) suggestion.paymentMethod = first.paymentMethod
+      if (first.salesPersonName) suggestion.salesPersonName = first.salesPersonName
+      if (!suggestion.status) suggestion.status = 'Paid'
+      if (!suggestion.paymentDate && suggestion.invoiceDate) {
+        suggestion.paymentDate = suggestion.invoiceDate
+      }
+      return Object.keys(suggestion).length > 0
+        ? suggestion
+        : mapOpenSuggestionToPaid(await suggestOpenInvoiceFromFile(file))
+    } catch {
+      return mapOpenSuggestionToPaid(await suggestOpenInvoiceFromFile(file))
+    }
+  }
+
+  const base = mapOpenSuggestionToPaid(await suggestOpenInvoiceFromFile(file))
+
+  if (isPdf) {
+    try {
+      const text = await extractPdfText(file)
+      const method =
+        text.match(/Payment\s*method\s*[:#]?\s*([^\n\r]+)/i)?.[1]?.trim() ||
+        text.match(/\b(Visa|Mastercard|Amex|American Express|Card|Credit Card|Debit Card|Bank transfer|Wire|ACH|UPI|PayPal|Stripe)\b/i)?.[1]
+      if (method) base.paymentMethod = method.replace(/\s+/g, ' ').trim()
+
+      const datePaid =
+        text.match(/Date\s*paid\s*[:#]?\s*([^\n\r]+)/i)?.[1]?.trim() ||
+        text.match(/Payment\s*date\s*[:#]?\s*([^\n\r]+)/i)?.[1]?.trim()
+      if (datePaid) {
+        const named = datePaid.match(
+          /\b((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+20\d{2})\b/i,
+        )
+        if (named?.[1]) {
+          const parsed = new Date(named[1])
+          if (!Number.isNaN(parsed.getTime())) {
+            const y = parsed.getFullYear()
+            const m = String(parsed.getMonth() + 1).padStart(2, '0')
+            const d = String(parsed.getDate()).padStart(2, '0')
+            base.paymentDate = `${y}-${m}-${d}`
+            if (!base.invoiceDate) base.invoiceDate = base.paymentDate
+          }
+        }
+      }
+    } catch {
+      // Keep base suggestion
+    }
+  }
+
+  if (!base.status) base.status = 'Paid'
+  if (!base.paymentDate && base.invoiceDate) base.paymentDate = base.invoiceDate
+
+  return base
+}
+
+function mapOpenSuggestionToPaid(
+  open: Partial<CreateOpenInvoiceInput>,
+): Partial<CreatePaidInvoiceInput> {
+  const suggestion: Partial<CreatePaidInvoiceInput> = {}
+  if (open.invoiceDate) suggestion.invoiceDate = open.invoiceDate
+  if (open.customerName) suggestion.customerName = open.customerName
+  if (open.companyName) suggestion.companyName = open.companyName
+  if (open.invoiceNumber) suggestion.invoiceNumber = open.invoiceNumber
+  if (open.invoiceAmount) suggestion.invoiceAmount = open.invoiceAmount
+  if (open.currency) suggestion.currency = open.currency
+  if (open.status) suggestion.status = open.status
+  if (open.salesPersonName) suggestion.salesPersonName = open.salesPersonName
+  return suggestion
 }
 
 export async function exportPaidInvoicesExcel(invoices: PaidInvoice[]) {

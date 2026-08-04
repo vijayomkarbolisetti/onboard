@@ -546,7 +546,7 @@ export function buildAndDownloadDashboardReport(args: {
     args.expenseYearFilter,
     moneyOpts,
   )
-  const forecast = forecastNextMonths(args.onboardingInvoices, 6, new Date(), moneyOpts)
+  const forecast = forecastNextMonths(args.onboardingInvoices, 3, new Date(), moneyOpts)
 
   downloadDashboardReport({
     ...args,
@@ -560,4 +560,122 @@ export function buildAndDownloadDashboardReport(args: {
     invoiceSummary,
     expenseSummary,
   })
+}
+
+export function downloadInvoiceModalExcel(input: {
+  title: string
+  periodLabel: string
+  displayCurrency: string
+  summary: {
+    raisedCount: number
+    raisedAmount: number
+    paidCount: number
+    paidAmount: number
+    pendingCount: number
+    pendingAmount: number
+  }
+  rows: Array<{
+    invoiceDate: string
+    customerName: string
+    companyName: string
+    type: 'Paid' | 'Pending'
+    displayAmount: number
+  }>
+}) {
+  const ws: XLSX.WorkSheet = {}
+  const colCount = 5
+
+  // Title + period (matches modal header)
+  for (let c = 0; c < colCount; c++) {
+    setCell(ws, 0, c, c === 0 ? input.title : '', titleStyle)
+    setCell(ws, 1, c, c === 0 ? input.periodLabel : '', subtitleStyle)
+  }
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: colCount - 1 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: colCount - 1 } },
+    { s: { r: 9, c: 0 }, e: { r: 9, c: colCount - 1 } },
+  ]
+
+  // Summary section
+  setCell(ws, 3, 0, 'Summary', sectionStyle)
+  for (let c = 1; c < colCount; c++) setCell(ws, 3, c, '', sectionStyle)
+
+  setCell(ws, 4, 0, 'Metric', headerStyle)
+  setCell(ws, 4, 1, 'Count', headerStyle)
+  setCell(ws, 4, 2, `Amount (${input.displayCurrency})`, headerStyle)
+  setCell(ws, 4, 3, '', headerStyle)
+  setCell(ws, 4, 4, '', headerStyle)
+
+  const summaryRows: Array<[string, number, number]> = [
+    ['Total raised', input.summary.raisedCount, input.summary.raisedAmount],
+    ['Total paid', input.summary.paidCount, input.summary.paidAmount],
+    ['Total pending', input.summary.pendingCount, input.summary.pendingAmount],
+  ]
+
+  summaryRows.forEach(([label, count, amount], index) => {
+    const row = 5 + index
+    const alt = index % 2 === 1
+    const fill = alt
+      ? { patternType: 'solid' as const, fgColor: { rgb: COLORS.altRow } }
+      : { patternType: 'solid' as const, fgColor: { rgb: 'FFFFFF' } }
+    setCell(ws, row, 0, label, { ...labelStyle, fill })
+    setCell(ws, row, 1, count, { ...countStyle, fill })
+    setCell(ws, row, 2, Number(amount.toFixed(2)), { ...valueStyle, fill })
+    setCell(ws, row, 3, '', { ...textStyle, fill })
+    setCell(ws, row, 4, '', { ...textStyle, fill })
+  })
+
+  setCell(
+    ws,
+    9,
+    0,
+    `Raised = paid + pending. Amounts are shown in ${input.displayCurrency}.`,
+    mutedStyle,
+  )
+  for (let c = 1; c < colCount; c++) setCell(ws, 9, c, '', mutedStyle)
+
+  // Detail table — same columns as UI
+  setCell(ws, 11, 0, 'Invoice details', sectionStyle)
+  for (let c = 1; c < colCount; c++) setCell(ws, 11, c, '', sectionStyle)
+
+  const detailHeaders = ['Date', 'Customer', 'Company', 'Type', 'Amount']
+  detailHeaders.forEach((header, col) => setCell(ws, 12, col, header, headerStyle))
+
+  if (input.rows.length === 0) {
+    setCell(ws, 13, 0, 'No invoices for this selection.', mutedStyle)
+    for (let c = 1; c < colCount; c++) setCell(ws, 13, c, '', mutedStyle)
+  } else {
+    input.rows.forEach((row, index) => {
+      const r = 13 + index
+      const alt = index % 2 === 1
+      const fill = alt
+        ? { patternType: 'solid' as const, fgColor: { rgb: COLORS.altRow } }
+        : { patternType: 'solid' as const, fgColor: { rgb: 'FFFFFF' } }
+      setCell(ws, r, 0, formatExportDate(row.invoiceDate), { ...textStyle, fill })
+      setCell(ws, r, 1, row.customerName || '—', { ...textStyle, fill })
+      setCell(ws, r, 2, row.companyName || '—', { ...textStyle, fill })
+      setCell(ws, r, 3, row.type, { ...textStyle, fill, alignment: { vertical: 'center', horizontal: 'right' } })
+      setCell(ws, r, 4, Number(row.displayAmount.toFixed(2)), { ...valueStyle, fill })
+    })
+  }
+
+  const lastRow = input.rows.length === 0 ? 13 : 12 + input.rows.length
+  ws['!ref'] = XLSX.utils.encode_range({
+    s: { r: 0, c: 0 },
+    e: { r: lastRow, c: colCount - 1 },
+  })
+  ws['!rows'] = [{ hpt: 28 }, { hpt: 20 }]
+  ws['!cols'] = [
+    { wch: 16 },
+    { wch: 22 },
+    { wch: 24 },
+    { wch: 12 },
+    { wch: 14 },
+  ]
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, ws, 'Invoice details')
+  const stamp = format(new Date(), 'yyyy-MM-dd')
+  const safeTitle = input.title.replace(/[^\w\s-]+/g, '').trim().replace(/\s+/g, '-').toLowerCase()
+  XLSX.writeFile(workbook, `${safeTitle || 'invoice-details'}-${stamp}.xlsx`)
 }
