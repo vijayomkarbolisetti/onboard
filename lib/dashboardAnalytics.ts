@@ -168,7 +168,7 @@ export function parseYearMonth(key: MonthKey): { year: string; month: string } |
   return { year: m[1], month: m[2] }
 }
 
-function matchesYearMonth(
+export function matchesYearMonth(
   dateStr: string | undefined,
   monthFilter: string,
   yearFilter: string,
@@ -361,18 +361,20 @@ function parseDateSafe(value: string | undefined): Date | null {
 }
 
 /**
- * Forecast next `months` calendar months from onboarding invoice cycles.
+ * Forecast rolling window around current month:
+ * previous `months` + current month + next `months`.
  * INR (and EUR / other) amounts convert into the selected display currency.
  */
 export function forecastNextMonths(
   records: OnboardingInvoiceRecord[],
-  months = 6,
+  months = 3,
   fromDate = new Date(),
   opts: AnalyticsMoneyOpts = {},
 ): ForecastMonth[] {
   const start = startOfMonth(fromDate)
+  const windowStart = addMonths(start, -months)
   const keys: MonthKey[] = []
-  for (let i = 1; i <= months; i++) {
+  for (let i = -months; i <= months; i++) {
     keys.push(format(addMonths(start, i), 'yyyy-MM'))
   }
 
@@ -423,6 +425,15 @@ export function forecastNextMonths(
       if (!isBefore(cursor, horizonEnd)) break
 
       const key = format(cursor, 'yyyy-MM')
+      if (isBefore(cursor, windowStart)) {
+        if (cycleMonths < 1) {
+          const days = cycleMonths <= 0.25 ? 7 : 14
+          cursor = new Date(cursor.getTime() + days * 24 * 60 * 60 * 1000)
+        } else {
+          cursor = addMonths(cursor, cycleMonths)
+        }
+        continue
+      }
       const bucket = buckets.get(key)
       if (bucket) {
         bucket.raisedCount += 1
@@ -513,21 +524,31 @@ export function expensesByTool(
   yearFilter = '',
   opts: AnalyticsMoneyOpts = {},
 ): StatusSlice[] {
-  const map = new Map<string, { count: number; amount: number }>()
+  const map = new Map<string, { name: string; count: number; amount: number }>()
+  const toToolKey = (value: string | undefined | null) =>
+    (value || 'Unknown').trim().toLowerCase().replace(/\s+/g, ' ')
+  const toDisplayName = (value: string | undefined | null) => {
+    const cleaned = (value || 'Unknown').trim().replace(/\s+/g, ' ')
+    if (!cleaned) return 'Unknown'
+    return cleaned
+      .split(' ')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ')
+  }
+
   for (const row of expenses) {
     if (!matchesYearMonth(row.invoiceDate, monthFilter, yearFilter)) continue
     const code = recordCurrency(row.currency, row.amount)
     if (!matchesCurrency(code, opts.currencyFilter)) continue
-    const name = (row.toolName || 'Unknown').trim() || 'Unknown'
-    const prev = map.get(name) ?? { count: 0, amount: 0 }
+    const key = toToolKey(row.toolName)
+    const prev = map.get(key) ?? { name: toDisplayName(row.toolName), count: 0, amount: 0 }
     prev.count += 1
     prev.amount += amountForAnalytics(row.amount, row.currency, row.amount, opts)
-    map.set(name, prev)
+    map.set(key, prev)
   }
-  return [...map.entries()]
-    .map(([name, v]) => ({ name, value: v.count, amount: v.amount }))
+  return [...map.values()]
+    .map((v) => ({ name: v.name, value: v.count, amount: v.amount }))
     .sort((a, b) => b.amount - a.amount)
-    .slice(0, 12)
 }
 
 export const MONTH_OPTIONS = [

@@ -18,7 +18,7 @@ interface DocumentFieldProps {
   disabled?: boolean
 }
 
-async function uploadDocument(file: File, folder: DocumentFolder): Promise<StoredDocument> {
+export async function uploadDocument(file: File, folder: DocumentFolder): Promise<StoredDocument> {
   if (file.size > MAX_FILE_SIZE_BYTES) {
     throw new Error('File must be 15MB or smaller')
   }
@@ -44,7 +44,7 @@ async function uploadDocument(file: File, folder: DocumentFolder): Promise<Store
   return payload.document
 }
 
-export async function openDocumentPreview(doc: StoredDocument) {
+export async function fetchDocumentPreviewUrl(doc: StoredDocument): Promise<string> {
   const params = new URLSearchParams({
     key: doc.key,
     fileName: doc.fileName,
@@ -54,7 +54,27 @@ export async function openDocumentPreview(doc: StoredDocument) {
   if (!res.ok || !payload.url) {
     throw new Error(payload.error ?? 'Failed to open document')
   }
-  window.open(payload.url, '_blank', 'noopener,noreferrer')
+  return payload.url
+}
+
+export async function openDocumentPreview(doc: StoredDocument) {
+  const url = await fetchDocumentPreviewUrl(doc)
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+export function isPreviewableImage(contentType: string, fileName = '') {
+  const type = contentType.toLowerCase()
+  const name = fileName.toLowerCase()
+  return (
+    type.startsWith('image/') ||
+    /\.(png|jpe?g|webp|gif)$/i.test(name)
+  )
+}
+
+export function isPreviewablePdf(contentType: string, fileName = '') {
+  const type = contentType.toLowerCase()
+  const name = fileName.toLowerCase()
+  return type === 'application/pdf' || name.endsWith('.pdf')
 }
 
 export function DocumentLinks({

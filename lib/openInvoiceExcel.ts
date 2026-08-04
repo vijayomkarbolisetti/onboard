@@ -140,6 +140,170 @@ export async function parseOpenInvoicesExcel(file: File) {
   return { records, importedCount: records.length }
 }
 
+/** Best-effort field suggestions from an uploaded invoice file (Excel, PDF text, or filename). */
+export async function suggestOpenInvoiceFromFile(
+  file: File,
+): Promise<Partial<CreateOpenInvoiceInput>> {
+  const name = file.name.toLowerCase()
+  const isExcel = name.endsWith('.xlsx') || name.endsWith('.xls')
+  const isPdf = name.endsWith('.pdf') || file.type === 'application/pdf'
+
+  if (isExcel) {
+    try {
+      const { records } = await parseOpenInvoicesExcel(file)
+      const first = records[0]
+      if (!first) return suggestFromFileName(file.name)
+      const suggestion: Partial<CreateOpenInvoiceInput> = {}
+      if (first.invoiceDate) suggestion.invoiceDate = first.invoiceDate
+      if (first.customerName) suggestion.customerName = first.customerName
+      if (first.companyName) suggestion.companyName = first.companyName
+      if (first.invoiceNumber) suggestion.invoiceNumber = first.invoiceNumber
+      if (first.invoiceAmount) suggestion.invoiceAmount = String(first.invoiceAmount)
+      if (first.currency) suggestion.currency = first.currency
+      if (first.status) suggestion.status = first.status
+      if (first.notes) suggestion.notes = first.notes
+      if (first.salesPersonName) suggestion.salesPersonName = first.salesPersonName
+      return Object.keys(suggestion).length > 0 ? suggestion : suggestFromFileName(file.name)
+    } catch {
+      return suggestFromFileName(file.name)
+    }
+  }
+
+  if (isPdf) {
+    try {
+      const text = await extractPdfText(file)
+      const fromText = suggestFromInvoiceText(text)
+      if (Object.keys(fromText).length > 0) {
+        return { ...suggestFromFileName(file.name), ...fromText }
+      }
+    } catch {
+      // Fall through to filename heuristics
+    }
+  }
+
+  return suggestFromFileName(file.name)
+}
+
+async function extractPdfText(file: File): Promise<string> {
+  const { extractText, getDocumentProxy } = await import('unpdf')
+  const data = new Uint8Array(await file.arrayBuffer())
+  const pdf = await getDocumentProxy(data)
+  const result = await extractText(pdf, { mergePages: true })
+  const text = result.text as string | string[] | undefined
+  if (typeof text === 'string') return text
+  if (Array.isArray(text)) return text.join('\n')
+  return ''
+}
+
+export { extractPdfText }
+
+function suggestFromInvoiceText(raw: string): Partial<CreateOpenInvoiceInput> {
+  const text = raw.replace(/\r/g, '\n').replace(/[ \t]+/g, ' ').trim()
+  if (!text) return {}
+
+  const suggestion: Partial<CreateOpenInvoiceInput> = {}
+  const compact = text.replace(/\n+/g, '\n')
+
+  const invoiceNumber =
+    compact.match(/Invoice\s*number\s*[:#]?\s*([A-Z0-9][A-Z0-9_./-]{2,})/i)?.[1] ||
+    compact.match(/Invoice\s*#\s*[:#]?\s*([A-Z0-9][A-Z0-9_./-]{2,})/i)?.[1] ||
+    compact.match(/Invoice\s*No\.?\s*[:#]?\s*([A-Z0-9][A-Z0-9_./-]{2,})/i)?.[1] ||
+    compact.match(/Receipt\s*number\s*[:#]?\s*([A-Z0-9][A-Z0-9_./-]{2,})/i)?.[1] ||
+    compact.match(/Receipt\s*#\s*[:#]?\s*([A-Z0-9][A-Z0-9_./-]{2,})/i)?.[1]
+  if (invoiceNumber) suggestion.invoiceNumber = invoiceNumber.trim()
+
+  const amountMatch =
+    compact.match(/(?:Amount\s*paid|Total\s*paid|Amount\s*due|Total\s*due|Grand\s*total|Total|Amount)\s*[:$]?\s*\$?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d{2})?)/i) ||
+    compact.match(/\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d{2}))/)
+  if (amountMatch?.[1]) {
+    suggestion.invoiceAmount = amountMatch[1].replace(/,/g, '')
+    if (/\$/.test(amountMatch[0]) || /USD/i.test(compact)) suggestion.currency = 'USD'
+  }
+
+  const currency = compact.match(/\b(USD|EUR|GBP|INR|AED|CAD|AUD)\b/i)?.[1]
+  if (currency) suggestion.currency = currency.toUpperCase()
+
+  const isoDate = compact.match(/\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/)
+  if (isoDate) {
+    suggestion.invoiceDate = `${isoDate[1]}-${isoDate[2].padStart(2, '0')}-${isoDate[3].padStart(2, '0')}`
+  } else {
+    const named = compact.match(
+      /\b(?:Date\s*paid|Invoice\s*date|Payment\s*date|Date)\s*[:-]?\s*((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+20\d{2})/i,
+    )
+    const looseNamed = compact.match(
+      /\b((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+20\d{2})\b/i,
+    )
+    const dateText = named?.[1] || looseNamed?.[1]
+    if (dateText) {
+      const parsed = new Date(dateText)
+      if (!Number.isNaN(parsed.getTime())) {
+        const y = parsed.getFullYear()
+        const m = String(parsed.getMonth() + 1).padStart(2, '0')
+        const d = String(parsed.getDate()).padStart(2, '0')
+        suggestion.invoiceDate = `${y}-${m}-${d}`
+      }
+    } else {
+      const dmy = compact.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/)
+      if (dmy) {
+        suggestion.invoiceDate = `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`
+      }
+    }
+  }
+
+  const billToBlock =
+    compact.match(/Bill\s*to\s*\n+\s*([A-Za-z][A-Za-z .'-]{1,80})/i)?.[1] ||
+    compact.match(/Bill\s*to\s*[:-]?\s*([A-Za-z][A-Za-z .'-]{1,80})/i)?.[1] ||
+    compact.match(/Customer\s*(?:name)?\s*[:-]?\s*([A-Za-z][A-Za-z .'-]{1,80})/i)?.[1]
+  if (billToBlock) {
+    const name = billToBlock.split('\n')[0].trim()
+    if (name && !/^(invoice|receipt|amount|date|payment)/i.test(name)) {
+      suggestion.customerName = name
+    }
+  }
+
+  return suggestion
+}
+
+function suggestFromFileName(fileName: string): Partial<CreateOpenInvoiceInput> {
+  const base = fileName.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim()
+  const suggestion: Partial<CreateOpenInvoiceInput> = {}
+
+  const invoiceNo =
+    base.match(/\b(INV[-\s]?\d[\w-]*)\b/i)?.[1] ||
+    base.match(/\b(INVOICE[-\s]?\d[\w-]*)\b/i)?.[1] ||
+    base.match(/\bReceipt[-\s]?([A-Z0-9]+(?:-[A-Z0-9]+)+)\b/i)?.[1] ||
+    base.match(/\b([0-9]{3,}-[0-9]{3,})\b/)?.[1]
+  if (invoiceNo) {
+    suggestion.invoiceNumber = String(invoiceNo).replace(/\s+/g, '-').toUpperCase()
+  }
+
+  const isoDate = base.match(/\b(20\d{2})[-_.](\d{1,2})[-_.](\d{1,2})\b/)
+  if (isoDate) {
+    const y = isoDate[1]
+    const m = isoDate[2].padStart(2, '0')
+    const d = isoDate[3].padStart(2, '0')
+    suggestion.invoiceDate = `${y}-${m}-${d}`
+  } else {
+    const dmy = base.match(/\b(\d{1,2})[-_.](\d{1,2})[-_.](20\d{2})\b/)
+    if (dmy) {
+      const d = dmy[1].padStart(2, '0')
+      const m = dmy[2].padStart(2, '0')
+      const y = dmy[3]
+      suggestion.invoiceDate = `${y}-${m}-${d}`
+    }
+  }
+
+  const currency = base.match(/\b(USD|EUR|GBP|INR|AED|CAD|AUD)\b/i)?.[1]
+  if (currency) suggestion.currency = currency.toUpperCase()
+
+  const amount =
+    base.match(/(?:USD|EUR|GBP|INR|AED|\$|€|£)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d{1,2})?)/i) ||
+    base.match(/\b([0-9]{1,3}(?:,[0-9]{3})+\.\d{2})\b/)
+  if (amount?.[1]) suggestion.invoiceAmount = amount[1].replace(/,/g, '')
+
+  return suggestion
+}
+
 export async function exportOpenInvoicesExcel(invoices: OpenInvoice[]) {
   const rows = []
   for (let index = 0; index < invoices.length; index++) {

@@ -16,7 +16,6 @@ import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { WyraLogo } from '@/components/WyraLogo'
-import { useTeamRole } from '@/hooks/useTeamRole'
 import { cn } from '@/lib/utils'
 import type { TabId } from '@/types'
 
@@ -24,6 +23,8 @@ interface LayoutProps {
   children: ReactNode
   activeTab: TabId
   onTabChange: (tab: TabId) => void
+  canViewTab: (tab: TabId) => boolean
+  permissionsLoaded: boolean
 }
 
 const navItems: { id: TabId; label: string; icon: typeof Users }[] = [
@@ -146,9 +147,14 @@ function WyraUserMenu() {
   )
 }
 
-export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
-  const { canView, isLoaded } = useTeamRole()
-  const visibleNavItems = navItems.filter((item) => !isLoaded || canView(item.id))
+export function Layout({
+  children,
+  activeTab,
+  onTabChange,
+  canViewTab,
+  permissionsLoaded,
+}: LayoutProps) {
+  const visibleNavItems = navItems.filter((item) => !permissionsLoaded || canViewTab(item.id))
 
   return (
     <div className="min-h-screen">
