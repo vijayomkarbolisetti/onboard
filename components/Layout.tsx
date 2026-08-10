@@ -1,9 +1,10 @@
 'use client'
 
-import { useClerk, useUser } from '@clerk/nextjs'
+import { useAuth, useClerk, useUser } from '@clerk/nextjs'
 import {
   CircleDollarSign,
   FileText,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Receipt,
@@ -11,11 +12,13 @@ import {
   UserPlus,
   Users,
   Wallet,
+  X,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { WyraLogo } from '@/components/WyraLogo'
+import { notify } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import type { TabId } from '@/types'
 
@@ -46,10 +49,230 @@ function getUserInitials(firstName?: string | null, lastName?: string | null, em
   return email?.charAt(0).toUpperCase() ?? 'U'
 }
 
+async function revokeOtherSessions() {
+  const res = await fetch('/api/account/revoke-other-sessions', { method: 'POST' })
+  const payload = (await res.json().catch(() => ({}))) as { error?: string; revokedCount?: number }
+  if (!res.ok) {
+    throw new Error(payload.error ?? 'Failed to sign out other devices')
+  }
+  return payload.revokedCount ?? 0
+}
+
+/** When password change revokes this session remotely, kick to sign-in quickly. */
+function SessionValidityWatcher() {
+  const { getToken, isSignedIn } = useAuth()
+  const { signOut } = useClerk()
+
+  useEffect(() => {
+    if (!isSignedIn) return
+
+    let cancelled = false
+
+    const check = async () => {
+      try {
+        const token = await getToken({ skipCache: true })
+        if (!cancelled && !token) {
+          await signOut({ redirectUrl: '/sign-in' })
+        }
+      } catch {
+        if (!cancelled) {
+          await signOut({ redirectUrl: '/sign-in' })
+        }
+      }
+    }
+
+    void check()
+    const id = window.setInterval(() => void check(), 20_000)
+    const onFocus = () => void check()
+    window.addEventListener('focus', onFocus)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [getToken, isSignedIn, signOut])
+
+  return null
+}
+
+function UpdatePasswordModal({
+  open,
+  onClose,
+}: {
+  open: boolean
+  onClose: () => void
+}) {
+  const { user } = useUser()
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setSubmitting(false)
+  }, [open])
+
+  if (!open) return null
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!user) return
+
+    if (newPassword.length < 8) {
+      notify.error('New password must be at least 8 characters')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      notify.error('New password and confirm password do not match')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      await user.updatePassword({
+        currentPassword,
+        newPassword,
+        signOutOfOtherSessions: true,
+      })
+
+      try {
+        const revokedCount = await revokeOtherSessions()
+        notify.success(
+          revokedCount > 0
+            ? `Password updated. Signed out of ${revokedCount} other device(s).`
+            : 'Password updated. Other devices will be signed out.',
+        )
+      } catch {
+        notify.success('Password updated. Other sessions were marked for sign-out.')
+      }
+
+      onClose()
+    } catch (err) {
+      const clerkErrors = (
+        err as { errors?: Array<{ longMessage?: string; message?: string }> } | null
+      )?.errors
+      const message =
+        clerkErrors?.[0]?.longMessage ||
+        clerkErrors?.[0]?.message ||
+        (err instanceof Error ? err.message : 'Failed to update password')
+      notify.error(message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-60 flex items-center justify-center overflow-y-auto p-4 sm:p-6">
+      <button
+        type="button"
+        className="fixed inset-0 theme-overlay backdrop-blur-sm"
+        onClick={() => {
+          if (!submitting) onClose()
+        }}
+        aria-label="Close update password"
+      />
+      <div className="relative my-auto flex w-full max-w-xl max-h-[min(90vh,720px)] flex-col overflow-hidden theme-modal">
+        <div className="h-1 shrink-0 bg-wyra-gradient" />
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-theme px-6 py-5">
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-theme-fg">Update password</h2>
+            <p className="mt-1 text-sm text-theme-muted">
+              Other signed-in devices will be signed out automatically.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="shrink-0 rounded-lg p-2 text-theme-muted hover:bg-theme-hover hover:text-theme-fg disabled:opacity-60"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <form
+          onSubmit={(e) => void handleSubmit(e)}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <div className="space-y-4 overflow-y-auto px-6 py-5">
+            <label className="block space-y-2">
+              <span className="wyra-label">Current password</span>
+              <input
+                type="password"
+                className="wyra-input"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                placeholder="Enter current password"
+              />
+            </label>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block space-y-2">
+                <span className="wyra-label">New password</span>
+                <input
+                  type="password"
+                  className="wyra-input"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="At least 8 characters"
+                />
+              </label>
+              <label className="block space-y-2">
+                <span className="wyra-label">Confirm password</span>
+                <input
+                  type="password"
+                  className="wyra-input"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="Re-enter new password"
+                />
+              </label>
+            </div>
+
+            <p className="rounded-xl border border-aqua/30 bg-aqua/5 px-4 py-3 text-xs leading-relaxed text-theme-body">
+              Saving will sign out all other devices that are currently logged in with this
+              account.
+            </p>
+          </div>
+
+          <div className="flex shrink-0 justify-end gap-3 border-t border-theme px-6 py-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="rounded-xl border border-theme px-5 py-2.5 text-sm font-medium text-theme-muted hover:bg-theme-hover disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting} className="btn-wyra disabled:opacity-60">
+              {submitting ? 'Saving...' : 'Save & sign out others'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 function WyraUserMenu() {
   const { user, isLoaded } = useUser()
   const { signOut, openUserProfile } = useClerk()
   const [open, setOpen] = useState(false)
+  const [passwordOpen, setPasswordOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -79,71 +302,87 @@ function WyraUserMenu() {
   const initials = getUserInitials(user.firstName, user.lastName, email)
 
   return (
-    <div className="relative" ref={menuRef}>
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-theme bg-theme-elevated transition hover:border-aqua/40"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label="Open account menu"
-      >
-        {user.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <span className="bg-wyra-gradient text-xs font-bold text-white">{initials}</span>
-        )}
-      </button>
-
-      {open ? (
-        <div
-          role="menu"
-          className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-theme bg-theme-modal shadow-[var(--theme-modal-shadow)]"
+    <>
+      <div className="relative" ref={menuRef}>
+        <button
+          type="button"
+          onClick={() => setOpen((current) => !current)}
+          className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-theme bg-theme-elevated transition hover:border-aqua/40"
+          aria-expanded={open}
+          aria-haspopup="menu"
+          aria-label="Open account menu"
         >
-          <div className="flex items-center gap-3 border-b border-theme px-4 py-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-theme bg-theme-elevated">
-              {user.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="bg-wyra-gradient flex h-full w-full items-center justify-center text-xs font-bold text-white">
-                  {initials}
-                </span>
-              )}
-            </div>
-            <p className="truncate text-sm font-medium text-theme-fg">{email}</p>
-          </div>
+          {user.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span className="bg-wyra-gradient text-xs font-bold text-white">{initials}</span>
+          )}
+        </button>
 
-          <div className="p-2">
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false)
-                openUserProfile()
-              }}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-theme-body transition hover:bg-theme-hover hover:text-theme-fg"
-            >
-              <Settings size={16} />
-              Manage account
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false)
-                void signOut({ redirectUrl: '/sign-in' })
-              }}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-theme-body transition hover:bg-theme-hover hover:text-theme-fg"
-            >
-              <LogOut size={16} />
-              Sign out
-            </button>
+        {open ? (
+          <div
+            role="menu"
+            className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-theme bg-theme-modal shadow-[var(--theme-modal-shadow)]"
+          >
+            <div className="flex items-center gap-3 border-b border-theme px-4 py-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-theme bg-theme-elevated">
+                {user.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="bg-wyra-gradient flex h-full w-full items-center justify-center text-xs font-bold text-white">
+                    {initials}
+                  </span>
+                )}
+              </div>
+              <p className="truncate text-sm font-medium text-theme-fg">{email}</p>
+            </div>
+
+            <div className="p-2">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false)
+                  openUserProfile()
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-theme-body transition hover:bg-theme-hover hover:text-theme-fg"
+              >
+                <Settings size={16} />
+                Manage account
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false)
+                  setPasswordOpen(true)
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-theme-body transition hover:bg-theme-hover hover:text-theme-fg"
+              >
+                <KeyRound size={16} />
+                Update password
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false)
+                  void signOut({ redirectUrl: '/sign-in' })
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-theme-body transition hover:bg-theme-hover hover:text-theme-fg"
+              >
+                <LogOut size={16} />
+                Sign out
+              </button>
+            </div>
           </div>
-        </div>
-      ) : null}
-    </div>
+        ) : null}
+      </div>
+
+      <UpdatePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
+    </>
   )
 }
 
@@ -158,6 +397,7 @@ export function Layout({
 
   return (
     <div className="min-h-screen">
+      <SessionValidityWatcher />
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[280px] flex-col border-r border-theme bg-theme-sidebar shadow-sm lg:flex">
         <div className="border-b border-theme px-6 py-6">
           <WyraLogo priority />
