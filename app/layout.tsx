@@ -20,7 +20,7 @@ export default function RootLayout({
         <link rel="stylesheet" href="https://fonts.cdnfonts.com/css/satoshi" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('wyra-theme');if(t==='light')document.documentElement.classList.add('light')}catch(e){}})()`,
+            __html: `(function(){try{var p=location.pathname;if(p.indexOf('/sign-in')===0||p.indexOf('/sign-up')===0){document.documentElement.classList.add('light');return}var t=localStorage.getItem('wyra-theme');if(t==='light')document.documentElement.classList.add('light')}catch(e){}})()`,
           }}
         />
       </head>

@@ -67,6 +67,7 @@ function SignInShell({ children }: { children: React.ReactNode }) {
       <div className="mb-8 flex flex-col items-center">
         <WyraLogo
           priority
+          variant="light"
           width={160}
           height={48}
           className="h-12 w-auto max-w-full object-contain"

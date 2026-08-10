@@ -8,25 +8,33 @@ interface WyraLogoProps {
   width?: number
   height?: number
   priority?: boolean
+  /** Force light/dark logo on auth pages regardless of stored app theme */
+  variant?: 'auto' | 'light' | 'dark'
 }
+
+const LOGO = {
+  light: '/wyra_logo_lightTheme.svg',
+  dark: '/logo.png',
+} as const
 
 export function WyraLogo({
   className = 'h-10 w-auto max-w-full object-contain object-left',
   width = 130,
   height = 44,
   priority = false,
+  variant = 'auto',
 }: WyraLogoProps) {
   const { theme, mounted } = useTheme()
 
-  if (!mounted) {
+  const isLight = variant === 'light' || (variant === 'auto' && theme === 'light')
+
+  if (!mounted && variant === 'auto') {
     return <div className={className} style={{ width, height }} aria-hidden />
   }
 
-  const isLight = theme === 'light'
-
   return (
     <Image
-      src={isLight ? '/wyra_logo_lightTheme.png' : '/logo.png'}
+      src={isLight ? LOGO.light : LOGO.dark}
       alt="Wyra"
       width={width}
       height={height}
