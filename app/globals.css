@@ -74,6 +74,43 @@ html.light {
   --theme-scrollbar-size: 10px;
 }
 
+/* Auth pages always use light theme (sign-in / sign-up), regardless of app theme */
+.auth-page {
+  --theme-bg: #f4f3fa;
+  --theme-surface: #ffffff;
+  --theme-elevated: #faf9ff;
+  --theme-sidebar: #ffffff;
+  --theme-fg: #241f5b;
+  --theme-muted: #5c5a78;
+  --theme-body: #3d3a55;
+  --theme-label: #241f5b;
+  --theme-border: #e8e6f0;
+  --theme-border-strong: #d4d1e3;
+  --theme-table-divider: #e0dde8;
+  --theme-input-bg: #ffffff;
+  --theme-hover: #f0eef8;
+  --theme-modal: #ffffff;
+  --theme-shadow: rgba(36, 31, 91, 0.1);
+  --theme-card-shadow: 0 4px 24px rgba(36, 31, 91, 0.08), 0 1px 3px rgba(36, 31, 91, 0.06);
+  --theme-modal-shadow: 0 24px 48px rgba(36, 31, 91, 0.18), 0 8px 16px rgba(36, 31, 91, 0.08);
+  --theme-glow-a: rgba(31, 204, 154, 0.06);
+  --theme-glow-b: rgba(124, 115, 181, 0.05);
+  --theme-gradient: linear-gradient(135deg, #1fcc9a 0%, #17a87f 50%, #04569a 100%);
+  --theme-btn-text: #ffffff;
+  --theme-overlay: rgba(36, 31, 91, 0.35);
+  --theme-date-filter: none;
+  color: #3d3a55;
+}
+
+.auth-page .wyra-input:-webkit-autofill,
+.auth-page .wyra-input:-webkit-autofill:hover,
+.auth-page .wyra-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #241f5b;
+  caret-color: #241f5b;
+  transition: background-color 9999s ease-out 0s;
+}
+
 * {
   box-sizing: border-box;
 }

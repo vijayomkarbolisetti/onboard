@@ -30,10 +30,11 @@ function SignUpShell({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <div className="auth-page flex min-h-screen flex-col items-center justify-center px-4 py-12">
+    <div className="auth-page flex min-h-screen flex-col items-center justify-center bg-[#f4f3fa] px-4 py-12">
       <div className="mb-8 flex flex-col items-center">
         <WyraLogo
           priority
+          variant="light"
           width={160}
           height={48}
           className="h-12 w-auto max-w-full object-contain"
