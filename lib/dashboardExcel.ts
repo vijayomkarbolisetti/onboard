@@ -578,12 +578,13 @@ export function downloadInvoiceModalExcel(input: {
     invoiceDate: string
     customerName: string
     companyName: string
+    invoiceNumber: string
     type: 'Paid' | 'Pending'
     displayAmount: number
   }>
 }) {
   const ws: XLSX.WorkSheet = {}
-  const colCount = 5
+  const colCount = 6
 
   // Title + period (matches modal header)
   for (let c = 0; c < colCount; c++) {
@@ -603,8 +604,7 @@ export function downloadInvoiceModalExcel(input: {
   setCell(ws, 4, 0, 'Metric', headerStyle)
   setCell(ws, 4, 1, 'Count', headerStyle)
   setCell(ws, 4, 2, `Amount (${input.displayCurrency})`, headerStyle)
-  setCell(ws, 4, 3, '', headerStyle)
-  setCell(ws, 4, 4, '', headerStyle)
+  for (let c = 3; c < colCount; c++) setCell(ws, 4, c, '', headerStyle)
 
   const summaryRows: Array<[string, number, number]> = [
     ['Total raised', input.summary.raisedCount, input.summary.raisedAmount],
@@ -621,8 +621,7 @@ export function downloadInvoiceModalExcel(input: {
     setCell(ws, row, 0, label, { ...labelStyle, fill })
     setCell(ws, row, 1, count, { ...countStyle, fill })
     setCell(ws, row, 2, Number(amount.toFixed(2)), { ...valueStyle, fill })
-    setCell(ws, row, 3, '', { ...textStyle, fill })
-    setCell(ws, row, 4, '', { ...textStyle, fill })
+    for (let c = 3; c < colCount; c++) setCell(ws, row, c, '', { ...textStyle, fill })
   })
 
   setCell(
@@ -634,11 +633,11 @@ export function downloadInvoiceModalExcel(input: {
   )
   for (let c = 1; c < colCount; c++) setCell(ws, 9, c, '', mutedStyle)
 
-  // Detail table — same columns as UI
+  // Detail table
   setCell(ws, 11, 0, 'Invoice details', sectionStyle)
   for (let c = 1; c < colCount; c++) setCell(ws, 11, c, '', sectionStyle)
 
-  const detailHeaders = ['Date', 'Customer', 'Company', 'Type', 'Amount']
+  const detailHeaders = ['Date', 'Invoice Number', 'Customer', 'Company', 'Type', 'Amount']
   detailHeaders.forEach((header, col) => setCell(ws, 12, col, header, headerStyle))
 
   if (input.rows.length === 0) {
@@ -652,10 +651,11 @@ export function downloadInvoiceModalExcel(input: {
         ? { patternType: 'solid' as const, fgColor: { rgb: COLORS.altRow } }
         : { patternType: 'solid' as const, fgColor: { rgb: 'FFFFFF' } }
       setCell(ws, r, 0, formatExportDate(row.invoiceDate), { ...textStyle, fill })
-      setCell(ws, r, 1, row.customerName || '—', { ...textStyle, fill })
-      setCell(ws, r, 2, row.companyName || '—', { ...textStyle, fill })
-      setCell(ws, r, 3, row.type, { ...textStyle, fill, alignment: { vertical: 'center', horizontal: 'right' } })
-      setCell(ws, r, 4, Number(row.displayAmount.toFixed(2)), { ...valueStyle, fill })
+      setCell(ws, r, 1, row.invoiceNumber || '—', { ...textStyle, fill })
+      setCell(ws, r, 2, row.customerName || '—', { ...textStyle, fill })
+      setCell(ws, r, 3, row.companyName || '—', { ...textStyle, fill })
+      setCell(ws, r, 4, row.type, { ...textStyle, fill, alignment: { vertical: 'center', horizontal: 'right' } })
+      setCell(ws, r, 5, Number(row.displayAmount.toFixed(2)), { ...valueStyle, fill })
     })
   }
 
@@ -666,7 +666,8 @@ export function downloadInvoiceModalExcel(input: {
   })
   ws['!rows'] = [{ hpt: 28 }, { hpt: 20 }]
   ws['!cols'] = [
-    { wch: 16 },
+    { wch: 14 },
+    { wch: 18 },
     { wch: 22 },
     { wch: 24 },
     { wch: 12 },

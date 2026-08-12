@@ -696,8 +696,9 @@ export function InvoiceSummaryModal({
             Raised = paid + pending. Amounts are shown in {displayCurrency}.
           </p>
           <div className="overflow-hidden rounded-2xl border border-theme">
-            <div className="grid grid-cols-[100px_minmax(0,1.2fr)_minmax(0,1.4fr)_90px_130px] gap-3 bg-theme-elevated px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-theme-muted">
+            <div className="grid grid-cols-[100px_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1.3fr)_90px_120px] gap-3 bg-theme-elevated px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-theme-muted">
               <span>Date</span>
+              <span>Invoice Number</span>
               <span>Customer</span>
               <span>Company</span>
               <span className="text-right">Type</span>
@@ -710,9 +711,12 @@ export function InvoiceSummaryModal({
                 rows.map((row, idx) => (
                   <div
                     key={`${row.invoiceNumber}-${idx}`}
-                    className="grid grid-cols-[100px_minmax(0,1.2fr)_minmax(0,1.4fr)_90px_130px] gap-3 border-t border-theme px-3 py-2 text-xs text-theme-body"
+                    className="grid grid-cols-[100px_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1.3fr)_90px_120px] gap-3 border-t border-theme px-3 py-2 text-xs text-theme-body"
                   >
                     <span>{formatExportDate(row.invoiceDate)}</span>
+                    <span className="truncate font-medium" title={row.invoiceNumber}>
+                      {row.invoiceNumber || '—'}
+                    </span>
                     <span className="truncate" title={row.customerName}>
                       {row.customerName || '—'}
                     </span>
