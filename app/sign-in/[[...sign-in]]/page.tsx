@@ -4,6 +4,7 @@ import {
   ClerkFailed,
   ClerkLoaded,
   ClerkLoading,
+  useAuth,
   useSignIn,
 } from '@clerk/nextjs'
 import { isClerkAPIResponseError } from '@clerk/nextjs/errors'
@@ -11,6 +12,20 @@ import { ChevronRight, Eye, EyeOff } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState, type FormEvent } from 'react'
 import { WyraLogo } from '@/components/WyraLogo'
+
+function resolveSignedInRedirect(redirectUrl: string | null): string {
+  if (!redirectUrl) return '/'
+  try {
+    const target = new URL(redirectUrl, window.location.origin)
+    if (target.origin !== window.location.origin) return '/'
+    if (target.pathname.startsWith('/sign-in') || target.pathname.startsWith('/sign-up')) {
+      return '/'
+    }
+    return `${target.pathname}${target.search}${target.hash}`
+  } catch {
+    return '/'
+  }
+}
 
 type SignInStep = 'login' | 'code' | 'mfa'
 
@@ -115,6 +130,7 @@ function ClerkUnavailableMessage() {
 function WyraSignInForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { isLoaded: authLoaded, isSignedIn } = useAuth()
   const { signIn, fetchStatus } = useSignIn()
 
   const [step, setStep] = useState<SignInStep>('login')
@@ -129,6 +145,12 @@ function WyraSignInForm() {
   const ticket = searchParams.get('__clerk_ticket')
   const clerkStatus = searchParams.get('__clerk_status')
   const isSubmitting = fetchStatus === 'fetching' || ticketLoading
+
+  // If a session already exists, skip the form and go into the app
+  useEffect(() => {
+    if (!authLoaded || !isSignedIn || ticket) return
+    router.replace(resolveSignedInRedirect(searchParams.get('redirect_url')))
+  }, [authLoaded, isSignedIn, ticket, router, searchParams])
 
   const finalizeSignIn = async () => {
     await signIn.finalize({
@@ -244,12 +266,22 @@ function WyraSignInForm() {
     }
 
     try {
+      if (isSignedIn) {
+        router.replace(resolveSignedInRedirect(searchParams.get('redirect_url')))
+        return
+      }
+
       const { error } = await signIn.password({
         emailAddress: trimmedEmail,
         password,
       })
       if (error) {
-        setFormError(getClerkErrorMessage(error))
+        const message = getClerkErrorMessage(error)
+        if (/already signed in/i.test(message)) {
+          router.replace(resolveSignedInRedirect(searchParams.get('redirect_url')))
+          return
+        }
+        setFormError(message)
         return
       }
 
@@ -260,7 +292,12 @@ function WyraSignInForm() {
         )
       }
     } catch (err) {
-      setFormError(getClerkErrorMessage(err))
+      const message = getClerkErrorMessage(err)
+      if (/already signed in/i.test(message)) {
+        router.replace(resolveSignedInRedirect(searchParams.get('redirect_url')))
+        return
+      }
+      setFormError(message)
     }
   }
 
@@ -305,6 +342,14 @@ function WyraSignInForm() {
         ? 'Accepting your invitation… or sign in with email below'
         : 'Welcome back! Please sign in to continue'
       : `We sent a verification code to ${email}`
+
+  if (authLoaded && isSignedIn && !ticket) {
+    return (
+      <AuthCard>
+        <p className="text-center text-sm text-[#5c5a78]">Already signed in. Redirecting…</p>
+      </AuthCard>
+    )
+  }
 
   return (
     <AuthCard>
