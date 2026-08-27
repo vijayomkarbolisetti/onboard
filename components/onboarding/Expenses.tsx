@@ -207,6 +207,99 @@ function DateFilterPopover({
   )
 }
 
+/* ── Simple value filter in column heading (Card Used / Owner / Currency) ── */
+interface ValueFilterPopoverProps {
+  label: string
+  value: string
+  options: string[]
+  placeholder: string
+  onChange: (v: string) => void
+  onClear: () => void
+}
+
+function ValueFilterPopover({
+  label,
+  value,
+  options,
+  placeholder,
+  onChange,
+  onClear,
+}: ValueFilterPopoverProps) {
+  const [open, setOpen] = useState(false)
+  const popoverRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const isActive = Boolean(value)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      const target = e.target as HTMLElement | null
+      if (target?.closest('.wyra-dropdown-panel')) {
+        return
+      }
+      if (
+        popoverRef.current && !popoverRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  return (
+    <span className="relative inline-flex items-center">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title={`Filter by ${label.toLowerCase()}`}
+        className={`ml-1 rounded p-0.5 transition ${
+          isActive
+            ? 'text-aqua'
+            : 'text-theme-muted hover:text-theme-fg'
+        }`}
+      >
+        <Filter size={12} />
+      </button>
+
+      {open && (
+        <div
+          ref={popoverRef}
+          className="absolute left-0 top-full z-50 mt-1 w-56 rounded-xl border border-theme bg-theme-modal p-3 shadow-lg"
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-theme-muted">
+              Filter by {label}
+            </span>
+            {isActive && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClear()
+                  setOpen(false)
+                }}
+                className="flex items-center gap-1 text-xs text-aqua hover:underline"
+              >
+                <X size={11} /> Clear
+              </button>
+            )}
+          </div>
+          <WyraSelect
+            value={value}
+            onChange={(v) => {
+              onChange(v)
+            }}
+            placeholder={placeholder}
+            options={options.map((option) => ({ value: option, label: option }))}
+          />
+        </div>
+      )}
+    </span>
+  )
+}
+
 export function Expenses({
   expenses,
   loading,
@@ -223,6 +316,9 @@ export function Expenses({
   const [viewingIndex, setViewingIndex] = useState(0)
   const [importing, setImporting] = useState(false)
   const [toolNameFilter, setToolNameFilter] = useState('')
+  const [cardUsedFilter, setCardUsedFilter] = useState('')
+  const [cardOwnerFilter, setCardOwnerFilter] = useState('')
+  const [currencyFilter, setCurrencyFilter] = useState('')
   const [monthFilter, setMonthFilter] = useState('')
   const [yearFilter, setYearFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -241,6 +337,30 @@ export function Expenses({
     [expenses],
   )
 
+  const cardUsedOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(expenses.map((expense) => expense.cardUsed.trim()).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    [expenses],
+  )
+
+  const cardOwnerOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(expenses.map((expense) => expense.cardOwner.trim()).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b)),
+    [expenses],
+  )
+
+  const currencyOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(expenses.map((expense) => expense.currency.trim()).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b)),
+    [expenses],
+  )
+
   const availableYears = useMemo(() => {
     const years = new Set<string>()
     for (const e of expenses) {
@@ -253,6 +373,9 @@ export function Expenses({
   const filteredExpenses = useMemo(() => {
     return expenses.filter((expense) => {
       if (toolNameFilter && expense.toolName !== toolNameFilter) return false
+      if (cardUsedFilter && expense.cardUsed !== cardUsedFilter) return false
+      if (cardOwnerFilter && expense.cardOwner !== cardOwnerFilter) return false
+      if (currencyFilter && expense.currency !== currencyFilter) return false
       if (monthFilter || yearFilter) {
         const parts = parseDateParts(expense.invoiceDate)
         if (!parts) return false
@@ -261,7 +384,15 @@ export function Expenses({
       }
       return true
     })
-  }, [expenses, toolNameFilter, monthFilter, yearFilter])
+  }, [
+    expenses,
+    toolNameFilter,
+    cardUsedFilter,
+    cardOwnerFilter,
+    currencyFilter,
+    monthFilter,
+    yearFilter,
+  ])
 
   const totalPages = Math.max(1, Math.ceil(filteredExpenses.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
@@ -330,7 +461,10 @@ export function Expenses({
           id="expense-tool-filter"
           className="min-w-0 flex-1"
           value={toolNameFilter}
-          onChange={(v) => { setToolNameFilter(v); setPage(1) }}
+          onChange={(v) => {
+            setToolNameFilter(v)
+            setPage(1)
+          }}
           placeholder="All tools"
           options={toolNameOptions.map((toolName) => ({
             value: toolName,
@@ -416,6 +550,60 @@ export function Expenses({
                       onYearChange={handleDateFilterChange(setYearFilter)}
                       onClear={clearDateFilter}
                       isActive={dateFilterActive}
+                    />
+                  </span>
+                ) : col === 'Card Used' ? (
+                  <span className="inline-flex items-center gap-0.5">
+                    Card Used
+                    <ValueFilterPopover
+                      label="Card Used"
+                      value={cardUsedFilter}
+                      options={cardUsedOptions}
+                      placeholder="All cards"
+                      onChange={(v) => {
+                        setCardUsedFilter(v)
+                        setPage(1)
+                      }}
+                      onClear={() => {
+                        setCardUsedFilter('')
+                        setPage(1)
+                      }}
+                    />
+                  </span>
+                ) : col === 'Card Owner' ? (
+                  <span className="inline-flex items-center gap-0.5">
+                    Card Owner
+                    <ValueFilterPopover
+                      label="Card Owner"
+                      value={cardOwnerFilter}
+                      options={cardOwnerOptions}
+                      placeholder="All owners"
+                      onChange={(v) => {
+                        setCardOwnerFilter(v)
+                        setPage(1)
+                      }}
+                      onClear={() => {
+                        setCardOwnerFilter('')
+                        setPage(1)
+                      }}
+                    />
+                  </span>
+                ) : col === 'Currency' ? (
+                  <span className="inline-flex items-center gap-0.5">
+                    Currency
+                    <ValueFilterPopover
+                      label="Currency"
+                      value={currencyFilter}
+                      options={currencyOptions}
+                      placeholder="All currencies"
+                      onChange={(v) => {
+                        setCurrencyFilter(v)
+                        setPage(1)
+                      }}
+                      onClear={() => {
+                        setCurrencyFilter('')
+                        setPage(1)
+                      }}
                     />
                   </span>
                 ) : (
